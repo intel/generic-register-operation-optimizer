@@ -8,16 +8,90 @@ it may not even have any source code at this moment.
 
 ## Introduction
 
-_groov_ is an open source hardware register abstraction library. It is designed
+`groov` is an open source hardware register abstraction library. It is designed
 to provide a safe, efficient, and maintainable interface to hardware registers
 in firmware.
 
+### Asynchronous Support
+
+`groov` presents an asynchronous interface for accessing registers. Hardware
+registers are not always local to the processor's memory bus, they could be 
+on a remote device over I2C, SPI, CAN, or another interface with a non-trivial
+latency. An asynchronous interface is key to robustly and efficiently accessing
+registers on remote busses.
+
+`groov` uses a senders and recievers library designed for baremetal firmware to
+provide a robust asynchronous framework. 
+
+### Optimized Operations
+
+Hardware registers often contain multiple fields packed in a single word. Each
+field may have different access attributes: read/write, read-only, write-only,
+write 1 to clear, write 1 to set, etc. When writing a subset of the fields of
+a register, it is often necessary to preserve the values of the remaining 
+fields. `groov` calculates whether a read-modify-write is necessary based on
+the field attributes, as well as the capabilities of the bus the field is on.
+
+If the bus can access a subset of the register, either through explicit byte-
+enables or sub-word access, then `groov` will perform this special access if
+it means a read-modify-write can be avoided.
+
 ## Quickstart
+
+### Read a Register
+
+```c++
+// read a register field synchronously
+auto op = wait(read(mbox / "cmd.opcode"_f));
+
+// read a whole register synchronously
+auto cmd = wait(read(mbox / "cmd"_r));
+
+// access fields of read result
+auto op = cmd["opcode"_f];
+auto len = cmd["length"_f];
+```
+
+### Write a Register
+
+```c++
+// write a register
+wait(write(mbox / "payload"_r[0] = 0xcafed00d));
+
+// write multiple fields in a register
+wait(write(mbox / "cmd"_r(
+    "start"_f = 1,
+    "length"_f = 1,
+    "opcode"_f = opcode_t::MSG
+)));
+```
+
+### Define Hardware Registers
+
+Registers are defined declaratively using a simple DSL. Register groups contain
+registers and registers contain fields. Registers and fields are referenced
+using compile-time strings.
+
+```c++
+constexpr auto mbox = 
+	groov::group<"mbox", mmio_bus,
+		groov::reg<"cmd", 0xfe0'0000, uint32_t,
+			groov::field<"start", 0,  0, groov::w1s>,
+			groov::field<"length", 18, 16, groov::rw>,
+			groov::field<"opcode", 31, 24, groov::rw, opcode_t>
+		>,
+
+		groov::banked_reg<"payload", 0xfe00'0004, uint32_t>
+	>;
+```
 
 ### Define Bus Interface
 
+`groov` needs to be told how registers in a group can be accessed. The 
+`groov::bus` concept provides this mechanism.
+
 ```c++
-constexpr struct mmio_bus_t : public groov::bus<uint32_t, uint32_t> {
+constexpr struct mmio_bus_t {
   static async::sender auto read(uint32_t addr);
   static async::sender auto write(uint32_t addr, auto mask, uint32_t data);
 
@@ -26,119 +100,29 @@ constexpr struct mmio_bus_t : public groov::bus<uint32_t, uint32_t> {
 } mmio_bus;
 ```
 
-### Define Hardware Registers
+### Temporary Register Values
+
+Temporary register values are a fundamental concept of `groov`. They are used
+for reading, writing, and passing register values around. 
+
+If you've been reading this document, then you've already seen them in action.
+Below you can see how they are used outside of a `read` or `write` operation.
 
 ```c++
-constexpr auto mailbox = 
-	groov::group<"mailbox", mmio_bus,
-		groov::reg<"cmd", 0xfe0'0000,
-			groov::field<"start", 0,  0, groov::w1s>,
-			groov::field<"length", 18, 16, groov::rw>,
-			groov::field<"opcode", 31, 24, groov::rw>
-		>,
-		groov::reg<"payload0", 0xfe0'0004>,
-		groov::reg<"payload1", 0xfe0'0008>,
-		groov::reg<"payload2", 0xfe0'000c>,
-		groov::reg<"payload3", 0xfe0'0010>,
-		groov::reg<"payload4", 0xfe0'0014>,
-		groov::reg<"payload5", 0xfe0'0018>,
-		groov::reg<"payload6", 0xfe0'001c>,
-		groov::reg<"payload7", 0xfe0'0020>
-	>;
-```
+// create a temporary of the 'cmd' register.
+auto cmd = mbox / "cmd"_r;
+cmd["opcode"_f] = opcode_t::CMD;
 
-Banked registers can be used to efficiently replicate contiguous registers with
-identical field definitions. 
+// writes 'opcode' to CMD, and remaining fields in cmd register to '0'
+wait(write(cmd));
 
-```c++
-constexpr auto mailbox = 
-	groov::group<"mailbox", mmio_bus,
-		groov::reg<"cmd", 0xfe0'0000,
-			groov::field<"start", 0,  0, groov::w1s>,
-			groov::field<"length", 18, 16, groov::rw>,
-			groov::field<"opcode", 31, 24, groov::rw, opcode_t>
-		>,
+// create a temporary of just the 'cmd.opcode' field.
+auto op = mbox / "cmd.opcode"_f;
+op = opcode_t::MSG;
 
-        // TODO: need support for multi-dimensional indexing of banked registers
-		groov::banked_reg<"payload", 0xfe00'0004, 32, 4>
-
-        // TODO: need support for aliasing registers?
-	>;
-```
-
-### Use Registers
-
-```c++
-
-// write some registers using flat syntax (like croo)
-// NOTE: registers can be treated same as fields
-auto send_msg(opcode_t op, uint32_t data) -> void {
-    sync_wait(apply(write(
-        mailbox / "payload"_r[0] = data
-    )));
-
-    sync_wait(apply(write(
-        mailbox / "cmd.start"_f = 1,
-        mailbox / "cmd.length"_f = 1,
-        mailbox / "cmd.opcode"_f = op
-    )));
-}
-
-// write some registers using new hierarchical syntax
-auto send_msg(opcode_t op, uint32_t data) -> void {
-    sync_wait(apply(
-        mailbox(
-            "cmd"_r(
-                "start"_f = 1,
-                "length"_f = 1,
-                "opcode"_f = op
-            ),
-            "payload"_r[0] = data,
-            "status"_r
-        )
-    ));
-
-    sync_wait(apply(write(
-        mailbox(
-            "cmd"_r(
-                "start"_f = 1,
-                "length"_f = 1,
-                "opcode"_f = [](auto old_op){
-                    return old_op + 1;
-                }
-            ),
-            "payload"_r[0] = data
-        )
-    )));
-}
-
-// read a register
-apply(mailbox / "cmd"_r) | async::then([](auto cmd){
-    auto op = cmd["opcode"_f];
-});
-
-// write a single register field
-apply(mailbox / "cmd.start"_f = 1) | async::then(...);
-
-// shortcut for blocking operations
-auto cmd = apply_now(mailbox / "cmd"_r);
-auto op = cmd["opcode"_f];
-
-apply_now(mailbox / "cmd.start"_f = 1);
-```
-
-
-### Create and Use Temporaries
-
-```c++
-using cmd_t = groov::temp<mailbox / "cmd"_r>;
-
-cmd_t my_temp_cmd{"start"_f = 1, "opcode"_f = opcode_t::FETCH_PATCH};
-my_temp_cmd["length"_f] = 0;
-
-apply(my_temp_cmd) | async::then(...);
-
-apply_now(my_temp_cmd);
+// only the opcode field will be updated
+// (depending on the bus, a read-modify-write operation may be executed)
+wait(write(op));
 ```
 
 ## Testing
@@ -149,14 +133,14 @@ apply_now(my_temp_cmd);
 automatically create mock register groups for you.
 
 ```c++
-groov::mock_group mailbox{};
+groov::mock_group mbox{};
 ```
 
 Creating expectations on mocks is straightforward.
 
 ```c++
 GROOV_EXPECT_WRITE(
-    mailbox(
+    mbox(
         "cmd"_r(
             "start"_f = 1, 
             "opcode"_f = opcode_t::FETCH_PATCH, 
@@ -165,5 +149,5 @@ GROOV_EXPECT_WRITE(
     )
 );
 
-GROOV_EXPECT_READ(mailbox / "cmd"_r = 0);
+GROOV_EXPECT_READ(mbox / "cmd"_r = 0);
 ```
