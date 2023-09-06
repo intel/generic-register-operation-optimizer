@@ -74,15 +74,15 @@ using compile-time strings.
 
 ```c++
 constexpr auto mbox = 
-	groov::group<"mbox", mmio_bus,
-		groov::reg<"cmd", 0xfe0'0000, uint32_t,
-			groov::field<"start", 0,  0, groov::w1s>,
-			groov::field<"length", 18, 16, groov::rw>,
-			groov::field<"opcode", 31, 24, groov::rw, opcode_t>
-		>,
+    groov::group<"mbox", mmio_bus,
+        groov::reg<"cmd", 0xfe0'0000, uint32_t,
+            groov::field<"start", 0,  0, groov::w1s>,
+            groov::field<"length", 18, 16, groov::rw>,
+            groov::field<"opcode", 31, 24, groov::rw, opcode_t>
+        >,
 
-		groov::banked_reg<"payload", 0xfe00'0004, uint32_t>
-	>;
+        groov::banked_reg<"payload", 0xfe00'0004, uint32_t>
+    >;
 ```
 
 ### Define Bus Interface
