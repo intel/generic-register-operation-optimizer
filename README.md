@@ -1,4 +1,4 @@
-# Generic Register Operation Optimzier 5 (groov)
+# Generic Register Operation Optimizer 5 (groov)
 
 ## WARNING: Work in Progress!
 
