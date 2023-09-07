@@ -1,0 +1,7 @@
+= Generic Register Operation Optimizer
+:revnumber: 0.1
+:revdate: Sep 07, 2023
+:source-highlighter: rouge
+:rouge-style: base16.solarized
+:source-language: c++
+:toc: left
