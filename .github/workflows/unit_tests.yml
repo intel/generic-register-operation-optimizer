@@ -123,8 +123,8 @@ jobs:
 
       - name: Install cmake-format
         run: |
-          pip3 install --upgrade pip
-          pip3 install pyyaml cmake-format
+          sudo pip3 install --upgrade pip
+          sudo pip3 install pyyaml cmake-format
 
       - name: Configure CMake
         env:
