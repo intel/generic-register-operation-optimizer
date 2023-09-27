@@ -72,6 +72,21 @@ async::sync_wait(
 );
 ```
 
+### Read-modify-write Operation
+
+```c++
+async::sync_wait(
+    groov::read(mbox / "cmd.length"_f) |
+    async::then([](auto r){
+        if (r["cmd.length"_f] < 10) {
+            r["cmd.length"_f]++;
+        }
+
+        return r;
+    }) |
+    groov::write
+);
+```
 ### Define Hardware Registers
 
 Registers are defined declaratively using a simple DSL. Register groups contain
@@ -83,7 +98,7 @@ constexpr auto mbox =
     groov::group<"mbox", mmio_bus,
         groov::reg<"cmd", 0xfe0'0000, uint32_t,
             groov::field<"start", 0,  0, groov::w1s>,
-            groov::field<"length", 18, 16, groov::rw>,
+            groov::field<"length", 19, 16, groov::rw>,
             groov::field<"opcode", 31, 24, groov::rw, opcode_t>
         >,
 
