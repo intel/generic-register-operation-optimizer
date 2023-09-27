@@ -20,8 +20,8 @@ on a remote device over I2C, SPI, CAN, or another interface with a non-trivial
 latency. An asynchronous interface is key to robustly and efficiently accessing
 registers on remote busses.
 
-`groov` uses a senders and recievers library designed for baremetal firmware to
-provide a robust asynchronous framework. 
+`groov` uses [Intel's baremetal senders and recievers library](https://github.com/intel/cpp-baremetal-senders-and-receivers) to
+provide a robust asynchronous execution framework. 
 
 ### Optimized Operations
 
@@ -42,10 +42,10 @@ it means a read-modify-write can be avoided.
 
 ```c++
 // read a register field synchronously
-auto op = wait(read(mbox / "cmd.opcode"_f));
+auto op = async::sync_wait(groov::read(mbox / "cmd.opcode"_f));
 
 // read a whole register synchronously
-auto cmd = wait(read(mbox / "cmd"_r));
+auto cmd = async::sync_wait(groov::read(mbox / "cmd"_r));
 
 // access fields of read result
 auto op = cmd["opcode"_f];
@@ -56,14 +56,20 @@ auto len = cmd["length"_f];
 
 ```c++
 // write a register
-wait(write(mbox / "payload"_r[0] = 0xcafed00d));
+async::sync_wait(
+    async::just(mbox / "payload"_r[0] = 0xcafed00d) |
+    groov::write
+);
 
 // write multiple fields in a register
-wait(write(mbox / "cmd"_r(
-    "start"_f = 1,
-    "length"_f = 1,
-    "opcode"_f = opcode_t::MSG
-)));
+async::sync_wait(
+    async::just(mbox / "cmd"_r(
+        "start"_f = 1,
+        "length"_f = 1,
+        "opcode"_f = opcode_t::MSG
+    )) |
+    groov::write
+);
 ```
 
 ### Define Hardware Registers
@@ -114,7 +120,7 @@ auto cmd = mbox / "cmd"_r;
 cmd["opcode"_f] = opcode_t::CMD;
 
 // writes 'opcode' to CMD, and remaining fields in cmd register to '0'
-wait(write(cmd));
+async::sync_wait(async::just(cmd) | groov::write);
 
 // create a temporary of just the 'cmd.opcode' field.
 auto op = mbox / "cmd.opcode"_f;
@@ -122,7 +128,7 @@ op = opcode_t::MSG;
 
 // only the opcode field will be updated
 // (depending on the bus, a read-modify-write operation may be executed)
-wait(write(op));
+async::sync_wait(async::just(op) | groov::write);
 ```
 
 ## Testing
