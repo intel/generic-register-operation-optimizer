@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   build_and_test:
-    runs-on: ubuntu-22.04
+    runs-on: intel-ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
