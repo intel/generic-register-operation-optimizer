@@ -7,6 +7,4 @@ using ::testing::_;
 using ::testing::InSequence;
 using ::testing::Return;
 
-TEST(group, construction) {
-    groov::group r{};
-}
+TEST(group, construction) { groov::group r{}; }

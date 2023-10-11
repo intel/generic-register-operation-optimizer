@@ -7,6 +7,4 @@ using ::testing::_;
 using ::testing::InSequence;
 using ::testing::Return;
 
-TEST(object, construction) {
-    groov::object r{};
-}
+TEST(object, construction) { groov::object r{}; }
