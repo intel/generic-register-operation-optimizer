@@ -14,7 +14,7 @@ TEST(identifier, construction) {
     "register_name"_r;
     "reg"_r / "field"_f;
     "reg"_r / "field"_f = 10;
-    
+
     "reg"_r("field1"_f, "field2"_f = 5);
 
     EXPECT_EQ(10, ("field"_f = 10).value);

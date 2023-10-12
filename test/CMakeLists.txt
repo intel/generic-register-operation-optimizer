@@ -1,4 +1,3 @@
-
 function(add_test_suites)
     foreach(test_file ${ARGN})
         string(REPLACE "/" "_" test_name "${test_file}")
@@ -15,8 +14,4 @@ function(add_test_suites)
     endforeach()
 endfunction()
 
-add_test_suites(
-    object.cpp
-    group.cpp
-    identifier.cpp
-)
+add_test_suites(object.cpp group.cpp identifier.cpp)

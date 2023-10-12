@@ -19,7 +19,8 @@ endif()
 add_library(groov INTERFACE)
 target_include_directories(groov INTERFACE include)
 target_compile_features(groov INTERFACE cxx_std_${CMAKE_CXX_STANDARD})
-target_link_libraries_system(groov INTERFACE safe_arithmetic concurrency stdx async)
+target_link_libraries_system(groov INTERFACE safe_arithmetic concurrency stdx
+                             async)
 
 if(PROJECT_IS_TOP_LEVEL)
     add_docs(docs)

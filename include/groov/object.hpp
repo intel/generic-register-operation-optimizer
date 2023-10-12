@@ -1,7 +1,5 @@
 #include <stdx/tuple.hpp>
 
 namespace groov {
-    struct object {
-
-    };
-}
+struct object {};
+} // namespace groov
