@@ -1,17 +1,17 @@
-function(add_test_suites)
-    foreach(test_file ${ARGN})
-        string(REPLACE "/" "_" test_name "${test_file}")
+function(add_tests)
+    foreach(name ${ARGN})
+        string(REPLACE "/" "_" test "${name}")
 
         add_unit_test(
-            ${test_name}
-            GTEST
+            ${test}_test
+            CATCH2
             FILES
-            ${test_file}
-            INCLUDE_DIRECTORIES
-            ${CMAKE_SOURCE_DIR}/test/
+            ${name}.cpp
             LIBRARIES
+            warnings
             groov)
     endforeach()
 endfunction()
 
-add_test_suites(object.cpp group.cpp identifier.cpp)
+add_tests(group identifier object)
+add_subdirectory(fail)
