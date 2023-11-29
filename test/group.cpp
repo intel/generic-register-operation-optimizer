@@ -1,10 +1,7 @@
-#include "gmock/gmock.h"
-#include "gtest/gtest.h"
-
 #include <groov/group.hpp>
 
-using ::testing::_;
-using ::testing::InSequence;
-using ::testing::Return;
+#include <catch2/catch_test_macros.hpp>
 
-TEST(group, construction) { groov::group r{}; }
+TEST_CASE("construction", "[group]") {
+    [[maybe_unused]] auto r = groov::group{};
+}

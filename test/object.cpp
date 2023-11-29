@@ -1,10 +1,7 @@
-#include "gmock/gmock.h"
-#include "gtest/gtest.h"
-
 #include <groov/object.hpp>
 
-using ::testing::_;
-using ::testing::InSequence;
-using ::testing::Return;
+#include <catch2/catch_test_macros.hpp>
 
-TEST(object, construction) { groov::object r{}; }
+TEST_CASE("construction", "[object]") {
+    [[maybe_unused]] auto r = groov::object{};
+}
