@@ -37,17 +37,25 @@ template <stdx::ct_string Name, typename T, std::size_t Msb, std::size_t Lsb,
           named... SubFields>
 struct field : named_container<Name, SubFields...> {
     using type_t = T;
+
+    constexpr static auto extract(auto value) {
+        constexpr auto mask = (1u << (Msb - Lsb + 1u)) - 1u;
+        return static_cast<type_t>((value >> Lsb) & mask);
+    }
 };
 
-using address_t = std::uint32_t;
-
-template <stdx::ct_string Name, typename T, address_t Address, named... Fields>
+template <stdx::ct_string Name, typename T, auto Address, named... Fields>
 struct reg : named_container<Name, Fields...> {
     using type_t = T;
+    constexpr static inline auto address = Address;
+
+    constexpr static auto extract(type_t value) { return value; }
 };
 
 template <stdx::ct_string Name, typename Bus, named... Registers>
-struct group : named_container<Name, Registers...> {};
+struct group : named_container<Name, Registers...> {
+    using bus_t = Bus;
+};
 
 template <stdx::ct_string Name, typename C>
 using get_child = typename C::template child_t<Name>;
