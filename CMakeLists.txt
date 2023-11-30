@@ -10,7 +10,7 @@ include(cmake/get_cpm.cmake)
 cpmaddpackage("gh:intel/cicd-repo-infrastructure#main")
 
 add_versioned_package("gh:boostorg/mp11#boost-1.83.0")
-add_versioned_package("gh:intel/cpp-std-extensions#af0dfb2")
+add_versioned_package("gh:intel/cpp-std-extensions#fd50a42")
 add_versioned_package("gh:intel/cpp-baremetal-senders-and-receivers#eb4239f")
 add_versioned_package("gh:intel/safe-arithmetic#9ea549a")
 
