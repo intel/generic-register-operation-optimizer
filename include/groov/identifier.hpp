@@ -129,6 +129,11 @@ CONSTEVAL auto make_path() {
 }
 } // namespace detail
 
+template <class T, T... chars> CONSTEVAL auto operator""_g() {
+    constexpr auto s = stdx::ct_string<sizeof...(chars) + 1U>{{chars..., 0}};
+    return detail::make_path<s>();
+}
+
 template <class T, T... chars> CONSTEVAL auto operator""_r() {
     constexpr auto s = stdx::ct_string<sizeof...(chars) + 1U>{{chars..., 0}};
     return detail::make_path<s>();
