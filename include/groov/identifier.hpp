@@ -1,3 +1,5 @@
+#pragma once
+
 #include <stdx/compiler.hpp>
 #include <stdx/ct_string.hpp>
 #include <stdx/tuple.hpp>
