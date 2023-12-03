@@ -5,8 +5,8 @@
 #include <async/when_all.hpp>
 
 #include <groov/boost_extra.hpp>
-#include <groov/identifier.hpp>
 #include <groov/object.hpp>
+#include <groov/path.hpp>
 
 #include <stdx/ct_string.hpp>
 #include <stdx/tuple.hpp>

@@ -1,4 +1,4 @@
-#include <groov/identifier.hpp>
+#include <groov/path.hpp>
 
 // EXPECT: invalid path
 
