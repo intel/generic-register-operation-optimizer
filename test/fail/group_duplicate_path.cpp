@@ -1,14 +1,12 @@
 #include <async/concepts.hpp>
 #include <async/just_result_of.hpp>
-#include <async/sync_wait.hpp>
 
 #include <groov/object.hpp>
 #include <groov/path.hpp>
-#include <groov/read.hpp>
 
 #include <cstdint>
 
-// EXPECT: Invalid path in read result lookup
+// EXPECT: Duplicate path passed to group
 
 namespace {
 struct bus {
@@ -18,18 +16,17 @@ struct bus {
 };
 
 using F0 = groov::field<"field0", std::uint8_t, 0, 0>;
-using F1 = groov::field<"field1", std::uint8_t, 1, 1>;
 
 std::uint32_t data0{};
-using R0 = groov::reg<"reg0", std::uint32_t, &data0, F0, F1>;
+using R0 = groov::reg<"reg0", std::uint32_t, &data0, F0>;
+std::uint32_t data1{};
+using R1 = groov::reg<"reg1", std::uint32_t, &data1, F0>;
 
-using G = groov::group<"group", bus, R0>;
+using G = groov::group<"group", bus, R0, R1>;
 } // namespace
 
 auto main() -> int {
     using namespace groov::literals;
     constexpr auto grp = G{};
-    auto r = groov::read(grp / "reg0.field0"_f, grp / "reg0.field1"_f);
-    auto const result = get<0>(*async::sync_wait(r));
-    return result["field2"_f];
+    constexpr auto x = grp("reg0"_r, "reg0"_r);
 }

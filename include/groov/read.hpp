@@ -16,165 +16,98 @@
 #include <boost/mp11/list.hpp>
 
 namespace groov {
-template <typename Object> constexpr auto extract(auto value) {
-    return Object::extract(value);
-}
-
-template <typename Object, stdx::ct_string Child, stdx::ct_string... Fields>
-constexpr auto extract(auto value) {
-    using child_t = get_child<Child, Object>;
-    return extract<child_t, Fields...>(value);
-}
-
-template <typename Object, stdx::ct_string... Parts>
-constexpr auto extract(path<Parts...>, auto value) {
-    return extract<Object, Parts...>(value);
-}
-
 namespace detail {
-template <typename T> using get_path = typename T::path_t;
-
-template <typename T> using register_of = boost::mp11::mp_front<get_path<T>>;
-template <typename T>
-using register_type_of = typename get_child<register_of<T>::value, T>::type;
-
-template <typename Path> struct path_match {
-    template <typename G>
-    using register_match =
-        boost::mp11::mp_bool<boost::mp11::mp_size<get_path<G>>::value == 1 and
-                             std::same_as<boost::mp11::mp_front<Path>,
-                                          boost::mp11::mp_front<get_path<G>>>>;
-
-    template <typename G>
-    using trailing_match = boost::mp11::mp_bool<
-        (boost::mp11::mp_size<get_path<G>>::value > 1) and
-        boost::mp11::mp_ends_with<get_path<G>, Path>::value>;
-
-    template <typename G>
-    using fn = boost::mp11::mp_or<trailing_match<G>, register_match<G>>;
-};
-
-template <typename...> struct read_result;
-
-template <typename G> struct read_result<G> {
-  private:
-    using type = register_type_of<G>;
-    using fullpath_t = get_path<G>;
-
-  public:
-    template <typename Path>
-        requires(path_match<Path>::template fn<G>::value)
-    constexpr auto operator[]([[maybe_unused]] Path p) const {
-        if constexpr (path_match<Path>::template register_match<G>::value) {
-            return extract<G>(p, value);
-        } else {
-            return extract<G>(fullpath_t{}, value);
-        }
-    }
-
-    template <typename Path> constexpr auto operator[](Path) const {
-        static_assert(stdx::always_false_v<Path>,
-                      "Invalid path in read result lookup");
-    }
-
-    type value{};
-
-  private:
-    using extract_type = decltype(extract<G>(fullpath_t{}, value));
-
-  public:
-    // NOLINTNEXTLINE(google-explicit-constructor)
-    constexpr operator extract_type() const {
-        return extract<G>(fullpath_t{}, value);
-    }
-};
-
-template <typename... Gs>
-    requires(sizeof...(Gs) > 1)
-struct read_result<Gs...> {
-  private:
-    using groups = boost::mp11::mp_list<Gs...>;
-    using G = boost::mp11::mp_front<groups>;
-    using type = register_type_of<G>;
-
-  public:
-    template <typename Path>
-    constexpr auto operator[]([[maybe_unused]] Path p) const {
-        using L = boost::mp11::mp_copy_if_q<groups, path_match<Path>>;
-        static_assert(not boost::mp11::mp_empty<L>::value,
-                      "Invalid path in read result lookup");
-        using group_t = boost::mp11::mp_front<L>;
-        return read_result<group_t>{value}[p];
-    }
-
-    type value{};
-};
-
-template <typename...> struct multi_read_result;
-
-template <template <typename...> typename List, typename... Lists>
-struct multi_read_result<List<Lists...>> {
-  private:
-    template <typename L>
-    using to_read_result = boost::mp11::mp_apply<read_result, L>;
-    using results_tuple_t = stdx::tuple<to_read_result<Lists>...>;
-
-    template <typename Path> struct any_path_match {
-        template <typename G>
-        using match = typename path_match<Path>::template fn<G>;
-        template <typename L> using fn = boost::mp11::mp_any_of<L, match>;
-    };
-
-  public:
-    template <typename Path> constexpr auto operator[](Path p) const {
-        using L =
-            boost::mp11::mp_copy_if_q<List<Lists...>, any_path_match<Path>>;
-        static_assert(not boost::mp11::mp_empty<L>::value,
-                      "Invalid path in read result lookup");
-        static_assert(boost::mp11::mp_size<L>::value == 1,
-                      "Ambiguous path in read result lookup");
-        using result_t = to_read_result<boost::mp11::mp_front<L>>;
-        return get<result_t>(results)[p];
-    }
-
-    results_tuple_t results{};
-};
-
-template <typename List> auto read(List) -> async::sender auto {
-    using T = boost::mp11::mp_front<List>;
-    constexpr auto reg_name = register_of<T>::value;
-    using register_t = get_child<reg_name, T>;
-    using bus_t = typename T::bus_t;
-    return bus_t::read(register_t::address);
+template <typename Register, typename Group> auto read() -> async::sender auto {
+    using bus_t = typename Group::bus_t;
+    return bus_t::read(Register::address);
 }
 
-template <typename List>
-using register_type_for_read = register_type_of<boost::mp11::mp_front<List>>;
+template <typename Group> struct register_for_path_q {
+    template <stdx::has_trait<is_path> P>
+    using fn = typename Group::template child_t<P::root()>;
+};
+
+template <typename Group> struct register_for_paths_q {
+    template <typename L>
+    using fn =
+        typename Group::template child_t<boost::mp11::mp_front<L>::root()>;
+};
+
+template <stdx::has_trait<is_path> Path> struct path_match_q {
+    template <stdx::has_trait<is_path> P>
+    using whole_register = std::bool_constant<
+        boost::mp11::mp_size<P>::value == 1 and
+        std::is_same_v<boost::mp11::mp_front<Path>, boost::mp11::mp_front<P>>>;
+
+    template <stdx::has_trait<is_path> P>
+    using admissible = boost::mp11::mp_or<whole_register<P>,
+                                          boost::mpx::mp_ends_with<P, Path>>;
+
+    template <typename L> using fn = boost::mp11::mp_any_of<L, admissible>;
+};
+
+template <typename RegPaths, typename... Rs> class read_result {
+    using type = stdx::tuple<Rs...>;
+
+    struct no_extract_type {};
+    using extract_type = stdx::conditional_t<
+        sizeof...(Rs) == 1 and
+            boost::mp11::mp_size<boost::mp11::mp_front<RegPaths>>::value == 1,
+        typename resolve_t<
+            boost::mp11::mp_front<type>,
+            boost::mp11::mp_front<boost::mp11::mp_front<RegPaths>>>::type,
+        no_extract_type>;
+
+    type value{};
+
+  public:
+    template <typename... Vs>
+    constexpr explicit read_result(Vs... vs) : value{Rs{{}, vs}...} {}
+
+    template <stdx::has_trait<is_path> Path>
+    constexpr auto operator[](Path) const {
+        using matches = boost::mp11::mp_copy_if_q<RegPaths, path_match_q<Path>>;
+        static_assert(not boost::mp11::mp_empty<matches>::value,
+                      "Invalid path passed to read_result lookup");
+        static_assert(boost::mp11::mp_size<matches>::value == 1,
+                      "Ambiguous path passed to read_result lookup");
+        using index =
+            boost::mp11::mp_find<RegPaths, boost::mp11::mp_front<matches>>;
+
+        auto const &r = stdx::get<index::value>(value);
+        using object_t = resolve_t<decltype(r), Path>;
+        return object_t::extract(r.value);
+    }
+
+    // NOLINTNEXTLINE(google-explicit-constructor)
+    constexpr operator extract_type() const
+        requires(not std::is_same_v<extract_type, no_extract_type>)
+    {
+        auto const &r = stdx::get<0>(value);
+        using object_t =
+            resolve_t<decltype(r),
+                      boost::mp11::mp_front<boost::mp11::mp_front<RegPaths>>>;
+        return object_t::extract(r.value);
+    }
+};
 } // namespace detail
 
-template <typename... Ts>
-    requires(sizeof...(Ts) > 0)
-auto read(Ts...) -> async::sender auto {
-    using chunks_by_register =
-        boost::mp11::mp_gather<detail::register_of,
-                               boost::mp11::mp_list<Ts...>>;
+template <typename T> auto read(T) {
+    using paths_by_register =
+        boost::mpx::mp_gather_q<detail::register_for_path_q<T>,
+                                typename T::paths_t>;
+    using registers =
+        boost::mp11::mp_transform_q<detail::register_for_paths_q<T>,
+                                    paths_by_register>;
+    using register_values =
+        boost::mp11::mp_transform<reg_with_value, registers>;
 
-    if constexpr (boost::mp11::mp_size<chunks_by_register>::value == 1u) {
-        using list_t = boost::mp11::mp_front<chunks_by_register>;
-        return detail::read(list_t{}) | async::then([](auto value) {
-                   return [&]<typename... Ps>(boost::mp11::mp_list<Ps...>) {
-                       return detail::read_result<Ps...>{value};
-                   }(list_t{});
+    return []<typename... Rs>(boost::mp11::mp_list<Rs...>) {
+        return async::when_all(detail::read<Rs, T>()...) |
+               async::then([](typename Rs::type... values) {
+                   return detail::read_result<paths_by_register, Rs...>{
+                       values...};
                });
-    } else {
-        return []<typename... Lists>(boost::mp11::mp_list<Lists...>) {
-            return async::when_all(detail::read(Lists{})...) |
-                   async::then(
-                       [](detail::register_type_for_read<Lists>... values) {
-                           return detail::multi_read_result<
-                               boost::mp11::mp_list<Lists...>>{values...};
-                       });
-        }(chunks_by_register{});
-    }
+    }(register_values{});
 }
 } // namespace groov

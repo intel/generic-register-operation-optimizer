@@ -1,9 +1,9 @@
 #include <groov/path.hpp>
 
-// EXPECT: too-long path
+// EXPECT: Attempting to access value with a path that is too long
 
 auto main() -> int {
     using namespace groov::literals;
-    constexpr auto v = "reg"_r("field1"_f = 5, "field2"_f = 10.0);
+    constexpr auto v = ("reg.field1"_f = 5);
     constexpr auto x = v["reg.field1.foo"_f];
 }

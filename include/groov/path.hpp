@@ -1,13 +1,16 @@
 #pragma once
 
+#include <groov/resolve.hpp>
+
 #include <stdx/compiler.hpp>
+#include <stdx/concepts.hpp>
 #include <stdx/ct_string.hpp>
 #include <stdx/tuple.hpp>
-#include <stdx/type_traits.hpp>
 
 #include <boost/mp11/algorithm.hpp>
+#include <boost/mp11/list.hpp>
+#include <boost/mp11/set.hpp>
 
-#include <algorithm>
 #include <concepts>
 #include <type_traits>
 
@@ -33,86 +36,119 @@ template <stdx::ct_string... Parts> struct path {
     constexpr auto operator()(Vs const &...vs) -> with_values_t<path, Vs...> {
         return {vs...};
     }
+
+    template <stdx::has_trait<is_path> P> constexpr static auto resolve(P) {
+        constexpr auto len = sizeof...(Parts);
+        constexpr auto other_len = boost::mp11::mp_size<P>::value;
+        if constexpr (len >= other_len) {
+            constexpr auto valid =
+                std::same_as<boost::mp11::mp_take_c<path, other_len>,
+                             boost::mp11::mp_take_c<P, other_len>>;
+            if constexpr (valid) {
+                return boost::mp11::mp_drop_c<path, other_len>{};
+            } else {
+                return mismatch_t{};
+            }
+        } else {
+            return too_long_t{};
+        }
+    }
+
+    constexpr static auto root()
+        requires(sizeof...(Parts) > 0)
+    {
+        return boost::mp11::mp_front<path>::value;
+    }
+
+    constexpr static auto without_root()
+        requires(sizeof...(Parts) > 0)
+    {
+        return boost::mp11::mp_drop_c<path, 1>{};
+    }
+
+  private:
+    friend constexpr auto operator==(path, path) -> bool = default;
 };
+
+template <stdx::ct_string... Parts>
+struct is_path<path<Parts...>> : std::true_type {};
 
 template <stdx::ct_string... As, stdx::ct_string... Bs>
 constexpr auto operator/(path<As...>, path<Bs...>) -> path<As..., Bs...> {
     return {};
 }
 
-namespace detail {
-template <typename, typename> struct drill_down;
-template <stdx::ct_string... As, stdx::ct_string... Bs>
-struct drill_down<path<As...>, path<Bs...>> {
-    constexpr static auto len = std::min(sizeof...(As), sizeof...(Bs));
-    using leftover_lhs = boost::mp11::mp_drop_c<path<As...>, len>;
-    using leftover_rhs = boost::mp11::mp_drop_c<path<Bs...>, len>;
+template <typename T> using get_path_t = typename T::path_t;
+template <typename T> constexpr auto get_path(T const &) -> get_path_t<T> {
+    return {};
+}
 
-    constexpr static auto valid =
-        std::is_same_v<boost::mp11::mp_take_c<path<As...>, len>,
-                       boost::mp11::mp_take_c<path<Bs...>, len>>;
-};
-} // namespace detail
-
-template <stdx::ct_string... Parts, typename Value>
-struct with_values_t<path<Parts...>, Value> {
-    using path_t = path<Parts...>;
+template <stdx::has_trait<is_path> Path, typename Value>
+struct with_values_t<Path, Value> {
+    using path_t = Path;
     using value_t = Value;
     value_t value;
 
-    template <typename P>
-    using resolvable_t =
-        std::bool_constant<detail::drill_down<P, path<Parts...>>::valid>;
-
-    template <stdx::ct_string... Ps>
-    constexpr auto operator[](path<Ps...>) const {
-        using T = detail::drill_down<path<Ps...>, path<Parts...>>;
-        static_assert(T::valid, "Attempting to access with an invalid path");
-        static_assert(boost::mp11::mp_empty<typename T::leftover_lhs>::value,
-                      "Attempting to access with a too-long path");
-        if constexpr (boost::mp11::mp_empty<typename T::leftover_rhs>::value) {
-            return value;
+    template <stdx::has_trait<is_path> P> constexpr auto resolve(P) const {
+        using leftover_path = resolve_t<path_t, P>;
+        if constexpr (stdx::has_trait<leftover_path, is_path>) {
+            if constexpr (boost::mp11::mp_empty<leftover_path>::value) {
+                return value;
+            } else {
+                return with_values_t<leftover_path, Value>{value};
+            }
         } else {
-            return with_values_t<typename T::leftover_rhs, Value>{value};
+            return leftover_path{};
         }
+    }
+
+    template <stdx::has_trait<is_path> P> constexpr auto operator[](P p) const {
+        return checked_resolve(*this, p);
     }
 };
 
-namespace detail {
-template <typename P> struct resolvable {
-    template <typename T> using fn = typename T::template resolvable_t<P>;
-};
-} // namespace detail
-
-template <stdx::ct_string... Parts, located_value... Values>
-struct with_values_t<path<Parts...>, Values...> {
-    using path_t = path<Parts...>;
+template <stdx::has_trait<is_path> Path, located_value... Values>
+struct with_values_t<Path, Values...> {
+    using path_t = Path;
     using value_t = stdx::tuple<Values...>;
     value_t value;
 
-    template <typename P>
-    using resolvable_t = std::bool_constant<
-        detail::drill_down<P, path<Parts...>>::valid and
-        (... or
-         detail::resolvable<typename detail::drill_down<
-             P, path<Parts...>>::leftover_lhs>::template fn<Values>::value)>;
+    static_assert(boost::mp11::mp_is_set<
+                      boost::mp11::mp_transform<get_path_t, value_t>>::value,
+                  "Values must have unique paths");
 
-    template <stdx::ct_string... Ps>
-    constexpr auto operator[](path<Ps...>) const {
-        using T = detail::drill_down<path<Ps...>, path<Parts...>>;
-        static_assert(T::valid, "Attempting to access with an invalid path");
-        if constexpr (boost::mp11::mp_empty<typename T::leftover_lhs>::value) {
-            return with_values_t<typename T::leftover_rhs, Values...>{value};
+    template <stdx::has_trait<is_path> P>
+    constexpr auto resolve([[maybe_unused]] P p) const {
+        constexpr auto len = boost::mp11::mp_size<Path>::value;
+        constexpr auto other_len = boost::mp11::mp_size<P>::value;
+        if constexpr (other_len > len) {
+            using leftover_path = resolve_t<P, path_t>;
+            if constexpr (stdx::has_trait<leftover_path, is_path>) {
+                using index =
+                    boost::mp11::mp_find_if_q<value_t,
+                                              resolves_q<leftover_path>>;
+                if constexpr (index::value !=
+                              boost::mp11::mp_size<value_t>::value) {
+                    return groov::resolve(stdx::get<index::value>(value),
+                                          leftover_path{});
+                } else {
+                    return mismatch_t{};
+                }
+            } else {
+                return leftover_path{};
+            }
         } else {
-            using valid_indices = boost::mp11::mp_transform_q<
-                detail::resolvable<typename T::leftover_lhs>,
-                stdx::type_list<Values...>>;
-            using index = boost::mp11::mp_find<valid_indices, std::true_type>;
-            static_assert(index::value !=
-                              boost::mp11::mp_size<valid_indices>::value,
-                          "Attempting to access with an invalid path");
-            return stdx::get<index::value>(value)[typename T::leftover_lhs{}];
+            using leftover_path = resolve_t<path_t, P>;
+            if constexpr (stdx::has_trait<leftover_path, is_path>) {
+                return with_values_t<leftover_path, Values...>{value};
+            } else {
+                return leftover_path{};
+            }
         }
+    }
+
+    template <stdx::has_trait<is_path> P> constexpr auto operator[](P p) const {
+        return checked_resolve(*this, p);
     }
 };
 
