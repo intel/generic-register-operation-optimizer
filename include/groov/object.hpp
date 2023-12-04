@@ -1,5 +1,7 @@
 #pragma once
 
+#include <groov/identifier.hpp>
+
 #include <stdx/ct_string.hpp>
 #include <stdx/type_traits.hpp>
 
@@ -36,20 +38,20 @@ template <stdx::ct_string Name, typename... Ts> struct named_container {
 template <stdx::ct_string Name, typename T, std::size_t Msb, std::size_t Lsb,
           named... SubFields>
 struct field : named_container<Name, SubFields...> {
-    using type_t = T;
+    using type = T;
 
     constexpr static auto extract(auto value) {
         constexpr auto mask = (1u << (Msb - Lsb + 1u)) - 1u;
-        return static_cast<type_t>((value >> Lsb) & mask);
+        return static_cast<type>((value >> Lsb) & mask);
     }
 };
 
 template <stdx::ct_string Name, typename T, auto Address, named... Fields>
 struct reg : named_container<Name, Fields...> {
-    using type_t = T;
+    using type = T;
     constexpr static inline auto address = Address;
 
-    constexpr static auto extract(type_t value) { return value; }
+    constexpr static auto extract(type value) { return value; }
 };
 
 template <stdx::ct_string Name, typename Bus, named... Registers>
@@ -59,4 +61,17 @@ struct group : named_container<Name, Registers...> {
 
 template <stdx::ct_string Name, typename C>
 using get_child = typename C::template child_t<Name>;
+
+template <stdx::ct_string Name, typename Bus, typename Path, named... Registers>
+struct group_with_path : group<Name, Bus, Registers...> {
+    using path_t = Path;
+};
+
+template <stdx::ct_string Name, typename Bus, typename... Registers,
+          stdx::ct_string... Parts>
+constexpr auto operator/(group<Name, Bus, Registers...>, path<Parts...>)
+    -> group_with_path<Name, Bus, path<Parts...>, Registers...> {
+    return {};
+}
+
 } // namespace groov
