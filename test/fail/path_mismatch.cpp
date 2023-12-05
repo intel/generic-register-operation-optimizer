@@ -1,6 +1,6 @@
-#include <groov/identifier.hpp>
+#include <groov/path.hpp>
 
-// EXPECT: invalid path
+// EXPECT: Attempting to access value with a mismatched path
 
 auto main() -> int {
     using namespace groov::literals;

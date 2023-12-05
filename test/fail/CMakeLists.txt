@@ -5,10 +5,10 @@ function(add_fail_tests)
 endfunction()
 
 add_fail_tests(
-    identifier_path_invalid
-    identifier_path_too_long
+    group_duplicate_path
+    group_redundant_path
+    group_unresolvable_path
+    path_mismatch
+    path_too_long
     read_ambiguous_path
-    read_ambiguous_multireg_path
-    read_invalid_path
-    read_invalid_multifield_path
-    read_invalid_multireg_path)
+    read_invalid_path)

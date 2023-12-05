@@ -1,14 +1,12 @@
 #include <async/concepts.hpp>
 #include <async/just_result_of.hpp>
-#include <async/sync_wait.hpp>
 
-#include <groov/identifier.hpp>
 #include <groov/object.hpp>
-#include <groov/read.hpp>
+#include <groov/path.hpp>
 
 #include <cstdint>
 
-// EXPECT: Invalid path in read result lookup
+// EXPECT: Duplicate path passed to group
 
 namespace {
 struct bus {
@@ -30,7 +28,5 @@ using G = groov::group<"group", bus, R0, R1>;
 auto main() -> int {
     using namespace groov::literals;
     constexpr auto grp = G{};
-    auto r = groov::read(grp / "reg0.field0"_f, grp / "reg1.field0"_f);
-    auto const result = get<0>(*async::sync_wait(r));
-    return result["field1"_f];
+    constexpr auto x = grp("reg0"_r, "reg0"_r);
 }
