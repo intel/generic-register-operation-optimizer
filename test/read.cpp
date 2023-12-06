@@ -15,10 +15,12 @@
 namespace {
 struct bus {
     static inline int num_reads{};
+    static inline std::uint32_t last_mask{};
 
-    static async::sender auto read(std::uint32_t *addr) {
+    template <auto Mask> static auto read(auto addr) -> async::sender auto {
         return async::just_result_of([=] {
             ++num_reads;
+            last_mask = Mask;
             return *addr;
         });
     }
@@ -141,4 +143,10 @@ TEST_CASE("read multiple registers then get fields", "[read]") {
     CHECK(r["reg0.field1"_f] == 0b1010u);
     CHECK(r["reg1.field0"_f] == 1u);
     CHECK(r["reg1.field1"_f] == 0b0101u);
+}
+
+TEST_CASE("read mask is passed to bus", "[read]") {
+    using namespace groov::literals;
+    [[maybe_unused]] auto r = sync_read(grp("reg0.field0"_f, "reg0.field2"_f));
+    CHECK(bus::last_mask == 0b111'0000'1u);
 }

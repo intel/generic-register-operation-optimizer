@@ -17,9 +17,10 @@
 
 namespace groov {
 namespace detail {
-template <typename Register, typename Group> auto read() -> async::sender auto {
+template <typename Register, typename Group, typename Mask>
+auto read() -> async::sender auto {
     using bus_t = typename Group::bus_t;
-    return bus_t::read(Register::address);
+    return bus_t::template read<Mask::value>(Register::address);
 }
 
 template <typename Group> struct register_for_path_q {
@@ -31,6 +32,24 @@ template <typename Group> struct register_for_paths_q {
     template <typename L>
     using fn =
         typename Group::template child_t<boost::mp11::mp_front<L>::root()>;
+};
+
+template <typename Group> struct field_mask_for_paths_q {
+    template <typename L>
+    using mask_t = typename Group::template child_t<
+        boost::mp11::mp_front<L>::root()>::type_t;
+
+    template <typename L> constexpr static auto compute_mask() {
+        mask_t<L> mask{};
+        stdx::template_for_each<L>([&]<typename P>() {
+            using object_t = resolve_t<Group, P>;
+            mask |= object_t::mask;
+        });
+        return mask;
+    }
+
+    template <typename L>
+    using fn = std::integral_constant<mask_t<L>, compute_mask<L>()>;
 };
 
 template <stdx::has_trait<is_path> Path> struct path_match_q {
@@ -55,7 +74,7 @@ template <typename RegPaths, typename... Rs> class read_result {
             boost::mp11::mp_size<boost::mp11::mp_front<RegPaths>>::value == 1,
         typename resolve_t<
             boost::mp11::mp_front<type>,
-            boost::mp11::mp_front<boost::mp11::mp_front<RegPaths>>>::type,
+            boost::mp11::mp_front<boost::mp11::mp_front<RegPaths>>>::type_t,
         no_extract_type>;
 
     type value{};
@@ -101,13 +120,17 @@ template <typename T> auto read(T) {
                                     paths_by_register>;
     using register_values =
         boost::mp11::mp_transform<reg_with_value, registers>;
+    using field_masks =
+        boost::mp11::mp_transform_q<detail::field_mask_for_paths_q<T>,
+                                    paths_by_register>;
 
-    return []<typename... Rs>(boost::mp11::mp_list<Rs...>) {
-        return async::when_all(detail::read<Rs, T>()...) |
-               async::then([](typename Rs::type... values) {
+    return []<typename... Rs, typename... Ms>(boost::mp11::mp_list<Rs...>,
+                                              boost::mp11::mp_list<Ms...>) {
+        return async::when_all(detail::read<Rs, T, Ms>()...) |
+               async::then([](typename Rs::type_t... values) {
                    return detail::read_result<paths_by_register, Rs...>{
                        values...};
                });
-    }(register_values{});
+    }(register_values{}, field_masks{});
 }
 } // namespace groov

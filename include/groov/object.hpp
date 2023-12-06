@@ -1,5 +1,6 @@
 #pragma once
 
+#include <groov/concepts.hpp>
 #include <groov/path.hpp>
 
 #include <stdx/ct_string.hpp>
@@ -9,25 +10,18 @@
 #include <boost/mp11/list.hpp>
 
 #include <cstddef>
-#include <cstdint>
+#include <limits>
 #include <type_traits>
 
 namespace groov {
-namespace detail {
-template <stdx::ct_string Name> struct name_t;
-template <typename T> using name_of = typename T::name_t;
-} // namespace detail
+template <stdx::ct_string Name, named... Ts> struct named_container {
+  private:
+    template <stdx::ct_string N> struct has_name_q {
+        template <named T>
+        using fn = std::is_same<detail::name_of<T>, detail::name_t<N>>;
+    };
 
-template <typename T>
-concept named =
-    stdx::is_specialization_of<typename T::name_t, detail::name_t>().value;
-
-template <stdx::ct_string Name> struct has_name_q {
-    template <named T>
-    using fn = std::is_same<detail::name_of<T>, detail::name_t<Name>>;
-};
-
-template <stdx::ct_string Name, typename... Ts> struct named_container {
+  public:
     constexpr static auto name = Name;
     using name_t = detail::name_t<Name>;
     using children_t = boost::mp11::mp_list<Ts...>;
@@ -74,13 +68,13 @@ constexpr auto recursive_resolve([[maybe_unused]] P p) {
 } // namespace detail
 
 template <stdx::ct_string Name, typename T, std::size_t Msb, std::size_t Lsb,
-          named... SubFields>
+          fieldlike... SubFields>
 struct field : named_container<Name, SubFields...> {
-    using type = T;
+    using type_t = T;
+    constexpr static auto mask = ((1u << (Msb - Lsb + 1u)) - 1u) << Lsb;
 
-    constexpr static auto extract(auto value) {
-        constexpr auto mask = (1u << (Msb - Lsb + 1u)) - 1u;
-        return static_cast<type>((value >> Lsb) & mask);
+    constexpr static auto extract(std::unsigned_integral auto value) {
+        return static_cast<type_t>((value & mask) >> Lsb);
     }
 
     template <stdx::has_trait<is_path> P> constexpr static auto resolve(P p) {
@@ -88,12 +82,18 @@ struct field : named_container<Name, SubFields...> {
     }
 };
 
-template <stdx::ct_string Name, typename T, auto Address, named... Fields>
+template <stdx::ct_string Name, std::unsigned_integral T, auto Address,
+          fieldlike... Fields>
 struct reg : named_container<Name, Fields...> {
-    using type = T;
-    constexpr static inline auto address = Address;
+    using type_t = T;
+    constexpr static auto mask = std::numeric_limits<type_t>::max();
 
-    constexpr static auto extract(type value) { return value; }
+    using address_t = decltype(Address);
+    constexpr static auto address = Address;
+
+    constexpr static auto extract(std::unsigned_integral auto value) {
+        return value;
+    }
 
     template <stdx::has_trait<is_path> P> constexpr static auto resolve(P p) {
         return detail::recursive_resolve<reg>(p);
@@ -101,7 +101,7 @@ struct reg : named_container<Name, Fields...> {
 };
 
 template <typename Reg> struct reg_with_value : Reg {
-    typename Reg::type value;
+    typename Reg::type_t value;
 };
 
 namespace detail {
@@ -113,7 +113,8 @@ template <typename L> struct any_resolves_q {
 
 template <stdx::ct_string Name, typename...> struct group_with_paths;
 
-template <stdx::ct_string Name, typename Bus, named... Registers>
+template <stdx::ct_string Name, typename Bus, registerlike... Registers>
+    requires(... and bus_for<Bus, Registers>)
 struct group : named_container<Name, Registers...> {
     using bus_t = Bus;
 

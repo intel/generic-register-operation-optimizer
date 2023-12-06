@@ -1,5 +1,5 @@
 #include <async/concepts.hpp>
-#include <async/just_result_of.hpp>
+#include <async/just.hpp>
 #include <async/sync_wait.hpp>
 
 #include <groov/object.hpp>
@@ -12,8 +12,8 @@
 
 namespace {
 struct bus {
-    static async::sender auto read(std::uint32_t *addr) {
-        return async::just_result_of([=] { return *addr; });
+    template <auto> static auto read(auto) -> async::sender auto {
+        return async::just(42);
     }
 };
 

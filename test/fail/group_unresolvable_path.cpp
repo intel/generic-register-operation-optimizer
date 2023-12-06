@@ -1,6 +1,3 @@
-#include <async/concepts.hpp>
-#include <async/just_result_of.hpp>
-
 #include <groov/object.hpp>
 #include <groov/path.hpp>
 
@@ -10,8 +7,12 @@
 
 namespace {
 struct bus {
-    static async::sender auto read(std::uint32_t *addr) {
-        return async::just_result_of([=] { return *addr; });
+    struct sender {
+        using is_sender = void;
+    };
+
+    template <auto> static auto read(auto) -> async::sender auto {
+        return sender{};
     }
 };
 

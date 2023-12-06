@@ -4,6 +4,18 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+namespace {
+struct bus {
+    struct sender {
+        using is_sender = void;
+    };
+
+    template <auto> static auto read(auto) -> async::sender auto {
+        return sender{};
+    }
+};
+} // namespace
+
 TEST_CASE("fields inside a register", "[object]") {
     using F = groov::field<"field", std::uint32_t, 0, 0>;
     using R = groov::reg<"reg", std::uint32_t, 0, F>;
@@ -13,7 +25,7 @@ TEST_CASE("fields inside a register", "[object]") {
 
 TEST_CASE("registers in a group", "[object]") {
     using R = groov::reg<"reg", std::uint32_t, 0>;
-    using G = groov::group<"group", void, R>;
+    using G = groov::group<"group", bus, R>;
     using X = groov::get_child<"reg", G>;
     static_assert(std::same_as<R, X>);
 }
@@ -100,25 +112,25 @@ TEST_CASE("ambiguous subpath gives ambiguous resolution", "[object]") {
 TEST_CASE("group with paths", "[object]") {
     using namespace groov::literals;
     using R = groov::reg<"reg", std::uint32_t, 0>;
-    using G = groov::group<"group", void, R>;
+    using G = groov::group<"group", bus, R>;
     constexpr auto grp = G{};
     constexpr auto x = grp("reg"_r);
     static_assert(
         std::is_same_v<decltype(x),
                        groov::group_with_paths<
-                           "group", void,
+                           "group", bus,
                            boost::mp11::mp_list<decltype("reg"_r)>, R> const>);
 }
 
 TEST_CASE("group with paths using operator/", "[object]") {
     using namespace groov::literals;
     using R = groov::reg<"reg", std::uint32_t, 0>;
-    using G = groov::group<"group", void, R>;
+    using G = groov::group<"group", bus, R>;
     constexpr auto grp = G{};
     constexpr auto x = grp / "reg"_r;
     static_assert(
         std::is_same_v<decltype(x),
                        groov::group_with_paths<
-                           "group", void,
+                           "group", bus,
                            boost::mp11::mp_list<decltype("reg"_r)>, R> const>);
 }
