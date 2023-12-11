@@ -76,10 +76,19 @@ TEST_CASE("path without its root", "[resolve]") {
     static_assert(p.without_root() == "b.c"_r);
 }
 
-TEST_CASE("path with value", "[identifier]") {
+TEST_CASE("path with value (operator=)", "[identifier]") {
     using namespace groov::literals;
     constexpr auto v = ("reg"_r / "field"_f = 5);
-    static_assert(get_path(v) == "reg.field"_f);
+    static_assert(std::is_same_v<groov::get_path_t<decltype(v)>,
+                                 decltype("reg.field"_f)>);
+    static_assert(v.value == 5);
+}
+
+TEST_CASE("path with value (operator())", "[identifier]") {
+    using namespace groov::literals;
+    constexpr auto v = "reg"_r(5);
+    static_assert(
+        std::is_same_v<groov::get_path_t<decltype(v)>, decltype("reg"_f)>);
     static_assert(v.value == 5);
 }
 
@@ -87,7 +96,8 @@ TEST_CASE("path with value can resolve path", "[identifier]") {
     using namespace groov::literals;
     constexpr auto v = ("reg"_r / "field"_f = 5);
     constexpr auto r = groov::resolve(v, "reg"_r);
-    static_assert(get_path(r) == "field"_f);
+    static_assert(
+        std::is_same_v<groov::get_path_t<decltype(r)>, decltype("field"_f)>);
     static_assert(r.value == 5);
 }
 
@@ -128,7 +138,8 @@ TEST_CASE("drill down into value with partial path", "[identifier]") {
     using namespace groov::literals;
     constexpr auto v = ("reg"_r / "field"_f = 5);
     constexpr auto r = v["reg"_r];
-    static_assert(get_path(r) == "field"_f);
+    static_assert(
+        std::is_same_v<groov::get_path_t<decltype(r)>, decltype("field"_f)>);
     static_assert(r.value == 5);
 }
 
