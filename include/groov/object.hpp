@@ -10,6 +10,7 @@
 #include <boost/mp11/list.hpp>
 
 #include <cstddef>
+#include <iterator>
 #include <limits>
 #include <type_traits>
 
@@ -45,19 +46,18 @@ constexpr auto resolve_matches([[maybe_unused]] P p) {
     }
 }
 
-template <typename T, pathlike P>
-constexpr auto recursive_resolve([[maybe_unused]] P p) {
-    constexpr auto root = P::root();
+template <typename T, pathlike P> constexpr auto recursive_resolve(P p) {
+    constexpr auto r = root(p);
     using children_t = typename T::children_t;
-    if constexpr (root == T::name) {
-        using leftover_path = decltype(P::without_root());
-        if constexpr (boost::mp11::mp_empty<leftover_path>::value) {
+    if constexpr (r == T::name) {
+        auto const leftover_path = without_root(p);
+        if constexpr (std::empty(leftover_path)) {
             return T{};
         } else {
             using matches =
                 boost::mp11::mp_copy_if_q<children_t,
-                                          resolves_q<leftover_path>>;
-            return resolve_matches<matches>(leftover_path{});
+                                          resolves_q<decltype(leftover_path)>>;
+            return resolve_matches<matches>(leftover_path);
         }
     } else {
         using matches = boost::mp11::mp_copy_if_q<children_t, resolves_q<P>>;
