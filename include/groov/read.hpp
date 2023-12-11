@@ -24,7 +24,7 @@ auto read() -> async::sender auto {
 }
 
 template <typename Group> struct register_for_path_q {
-    template <stdx::has_trait<is_path> P>
+    template <pathlike P>
     using fn = typename Group::template child_t<P::root()>;
 };
 
@@ -52,13 +52,13 @@ template <typename Group> struct field_mask_for_paths_q {
     using fn = std::integral_constant<mask_t<L>, compute_mask<L>()>;
 };
 
-template <stdx::has_trait<is_path> Path> struct path_match_q {
-    template <stdx::has_trait<is_path> P>
+template <pathlike Path> struct path_match_q {
+    template <pathlike P>
     using whole_register = std::bool_constant<
         boost::mp11::mp_size<P>::value == 1 and
         std::is_same_v<boost::mp11::mp_front<Path>, boost::mp11::mp_front<P>>>;
 
-    template <stdx::has_trait<is_path> P>
+    template <pathlike P>
     using admissible = boost::mp11::mp_or<whole_register<P>,
                                           boost::mpx::mp_ends_with<P, Path>>;
 
@@ -83,8 +83,7 @@ template <typename RegPaths, typename... Rs> class read_result {
     template <typename... Vs>
     constexpr explicit read_result(Vs... vs) : value{Rs{{}, vs}...} {}
 
-    template <stdx::has_trait<is_path> Path>
-    constexpr auto operator[](Path) const {
+    template <pathlike Path> constexpr auto operator[](Path) const {
         using matches = boost::mp11::mp_copy_if_q<RegPaths, path_match_q<Path>>;
         static_assert(not boost::mp11::mp_empty<matches>::value,
                       "Invalid path passed to read_result lookup");

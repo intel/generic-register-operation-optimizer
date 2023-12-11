@@ -32,10 +32,9 @@ template <stdx::ct_string Name, named... Ts> struct named_container {
 };
 
 namespace detail {
-template <typename T, stdx::has_trait<is_path> P>
-constexpr auto recursive_resolve(P);
+template <typename T, pathlike P> constexpr auto recursive_resolve(P);
 
-template <typename L, stdx::has_trait<is_path> P>
+template <typename L, pathlike P>
 constexpr auto resolve_matches([[maybe_unused]] P p) {
     if constexpr (boost::mp11::mp_empty<L>::value) {
         return invalid_t{};
@@ -46,7 +45,7 @@ constexpr auto resolve_matches([[maybe_unused]] P p) {
     }
 }
 
-template <typename T, stdx::has_trait<is_path> P>
+template <typename T, pathlike P>
 constexpr auto recursive_resolve([[maybe_unused]] P p) {
     constexpr auto root = P::root();
     using children_t = typename T::children_t;
@@ -77,7 +76,7 @@ struct field : named_container<Name, SubFields...> {
         return static_cast<type_t>((value & mask) >> Lsb);
     }
 
-    template <stdx::has_trait<is_path> P> constexpr static auto resolve(P p) {
+    template <pathlike P> constexpr static auto resolve(P p) {
         return detail::recursive_resolve<field>(p);
     }
 };
@@ -95,7 +94,7 @@ struct reg : named_container<Name, Fields...> {
         return value;
     }
 
-    template <stdx::has_trait<is_path> P> constexpr static auto resolve(P p) {
+    template <pathlike P> constexpr static auto resolve(P p) {
         return detail::recursive_resolve<reg>(p);
     }
 };
@@ -106,8 +105,7 @@ template <typename Reg> struct reg_with_value : Reg {
 
 namespace detail {
 template <typename L> struct any_resolves_q {
-    template <stdx::has_trait<is_path> P>
-    using fn = boost::mp11::mp_any_of_q<L, resolves_q<P>>;
+    template <pathlike P> using fn = boost::mp11::mp_any_of_q<L, resolves_q<P>>;
 };
 } // namespace detail
 
@@ -118,11 +116,11 @@ template <stdx::ct_string Name, typename Bus, registerlike... Registers>
 struct group : named_container<Name, Registers...> {
     using bus_t = Bus;
 
-    template <stdx::has_trait<is_path> P> constexpr static auto resolve(P p) {
+    template <pathlike P> constexpr static auto resolve(P p) {
         return detail::recursive_resolve<group>(p);
     }
 
-    template <stdx::has_trait<is_path>... Ps>
+    template <pathlike... Ps>
         requires(sizeof...(Ps) > 0)
     constexpr auto operator()(Ps const &...) const
         -> group_with_paths<Name, Bus, boost::mp11::mp_list<Ps...>,
