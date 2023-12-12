@@ -15,28 +15,95 @@
 #include <type_traits>
 
 namespace groov {
-template <typename T>
-concept located_value = pathlike<T> and requires(T &t) {
-    { t.value } -> std::same_as<typename T::value_t &>;
+template <stdx::ct_string P, stdx::ct_string... Ps>
+constexpr auto root(path<P, Ps...> const &) {
+    return P;
+}
+
+template <pathlike P> constexpr auto without_root(P const &p) {
+    return p.without_root();
+}
+
+template <pathlike Path, typename Value> struct with_value_t : Path {
+    using value_t = Value;
+    [[no_unique_address]] value_t value;
+
+    template <pathlike P> constexpr auto resolve([[maybe_unused]] P p) const {
+        constexpr auto len = boost::mp11::mp_size<Path>::value;
+        constexpr auto other_len = boost::mp11::mp_size<P>::value;
+        if constexpr (other_len > len) {
+            using leftover_t = resolve_t<P, Path>;
+            auto const leftover_path = groov::resolve(p, Path{});
+            if constexpr (pathlike<leftover_t>) {
+                if constexpr (stdx::is_specialization_of_v<value_t,
+                                                           stdx::tuple>) {
+                    using L = boost::mp11::mp_copy_if_q<value_t,
+                                                        resolves_q<leftover_t>>;
+                    if constexpr (boost::mp11::mp_empty<L>::value) {
+                        return mismatch_t{};
+                    } else if constexpr (boost::mp11::mp_size<L>::value > 1) {
+                        return ambiguous_t{};
+                    } else {
+                        return groov::resolve(
+                            stdx::get<boost::mp11::mp_front<L>>(value),
+                            leftover_path);
+                    }
+                } else {
+                    return too_long_t{};
+                }
+            } else {
+                return leftover_path;
+            }
+        } else {
+            using leftover_t = resolve_t<Path, P>;
+            auto const leftover_path = groov::resolve(Path{}, p);
+            if constexpr (pathlike<leftover_t>) {
+                if constexpr (std::empty(leftover_path) and
+                              not stdx::is_specialization_of_v<value_t,
+                                                               stdx::tuple>) {
+                    return value;
+                } else {
+                    return with_value_t<leftover_t, Value>{{}, value};
+                }
+            } else {
+                return leftover_path;
+            }
+        }
+    }
+
+    template <pathlike P> constexpr auto operator[](P p) const {
+        return checked_resolve(*this, p);
+    }
+
+    constexpr auto without_root() const {
+        return with_value_t<decltype(groov::without_root(Path{})), Value>{
+            {}, value};
+    }
+
+  private:
+    friend constexpr auto operator==(with_value_t const &, with_value_t const &)
+        -> bool = default;
+
+    template <typename P>
+        requires(stdx::is_value_specialization_of_v<P, groov::path>)
+    friend constexpr auto operator/(P p, with_value_t const &v) {
+        return with_value_t<decltype(p / Path{}), Value>{{}, v.value};
+    }
 };
 
-template <typename Path, typename... Values> struct with_values_t;
-
 template <stdx::ct_string... Parts> struct path {
+    template <typename... Vs> constexpr auto operator()(Vs const &...vs) {
+        if constexpr (sizeof...(Vs) > 1) {
+            return with_value_t<path, stdx::tuple<Vs...>>{{}, {vs...}};
+        } else {
+            return with_value_t<path, Vs...>{{}, vs...};
+        }
+    }
+
     template <typename T>
     // NOLINTNEXTLINE(cppcoreguidelines-c-copy-assignment-signature)
-    constexpr auto operator=(T const &value) -> with_values_t<path, T> {
-        return {{}, value};
-    }
-
-    template <typename T> constexpr auto operator()(T const &value) {
-        return *this = value;
-    }
-
-    template <located_value... Vs>
-        requires(sizeof...(Vs) > 0)
-    constexpr auto operator()(Vs const &...vs) -> with_values_t<path, Vs...> {
-        return {{}, vs...};
+    constexpr auto operator=(T const &value) {
+        return (*this)(value);
     }
 
     template <pathlike P> constexpr static auto resolve(P) {
@@ -56,91 +123,23 @@ template <stdx::ct_string... Parts> struct path {
         }
     }
 
-    constexpr static auto root()
-        requires(sizeof...(Parts) > 0)
-    {
-        return boost::mp11::mp_front<path>::value;
-    }
-
     constexpr static auto without_root()
         requires(sizeof...(Parts) > 0)
     {
         return boost::mp11::mp_drop_c<path, 1>{};
     }
 
+    constexpr static auto empty = std::bool_constant<sizeof...(Parts) == 0>{};
+
   private:
     friend constexpr auto operator==(path, path) -> bool = default;
-};
 
-template <stdx::ct_string... As, stdx::ct_string... Bs>
-constexpr auto operator/(path<As...>, path<Bs...>) -> path<As..., Bs...> {
-    return {};
-}
-
-template <pathlike Path, typename Value>
-struct with_values_t<Path, Value> : Path {
-    using path_t = Path;
-    using value_t = Value;
-    value_t value;
-
-    template <pathlike P> constexpr auto resolve(P) const {
-        using leftover_path = resolve_t<Path, P>;
-        if constexpr (pathlike<leftover_path>) {
-            if constexpr (boost::mp11::mp_empty<leftover_path>::value) {
-                return value;
-            } else {
-                return with_values_t<leftover_path, Value>{{}, value};
-            }
-        } else {
-            return leftover_path{};
-        }
-    }
-
-    template <pathlike P> constexpr auto operator[](P p) const {
-        return checked_resolve(*this, p);
-    }
-};
-
-template <pathlike Path, located_value... Values>
-struct with_values_t<Path, Values...> : Path {
-    using value_t = stdx::tuple<Values...>;
-    value_t value;
-
-    static_assert(boost::mp11::mp_is_set<
-                      boost::mp11::mp_transform<get_path_t, value_t>>::value,
-                  "Values must have unique paths");
-
-    template <pathlike P> constexpr auto resolve([[maybe_unused]] P p) const {
-        constexpr auto len = boost::mp11::mp_size<Path>::value;
-        constexpr auto other_len = boost::mp11::mp_size<P>::value;
-        if constexpr (other_len > len) {
-            using leftover_path = resolve_t<P, Path>;
-            if constexpr (pathlike<leftover_path>) {
-                using index =
-                    boost::mp11::mp_find_if_q<value_t,
-                                              resolves_q<leftover_path>>;
-                if constexpr (index::value !=
-                              boost::mp11::mp_size<value_t>::value) {
-                    return groov::resolve(stdx::get<index::value>(value),
-                                          leftover_path{});
-                } else {
-                    return mismatch_t{};
-                }
-            } else {
-                return leftover_path{};
-            }
-        } else {
-            using leftover_path = resolve_t<Path, P>;
-            if constexpr (pathlike<leftover_path>) {
-                return with_values_t<leftover_path, Values...>{{}, value};
-            } else {
-                return leftover_path{};
-            }
-        }
-    }
-
-    template <pathlike P> constexpr auto operator[](P p) const {
-        return checked_resolve(*this, p);
+    template <typename P>
+        requires(stdx::is_value_specialization_of_v<P, path>)
+    friend constexpr auto operator/(path, P p) {
+        return []<stdx::ct_string... As>(path<As...>) -> path<Parts..., As...> {
+            return {};
+        }(p);
     }
 };
 

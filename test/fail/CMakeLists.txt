@@ -8,6 +8,7 @@ add_fail_tests(
     group_duplicate_path
     group_redundant_path
     group_unresolvable_path
+    path_ambiguous
     path_mismatch
     path_too_long
     read_ambiguous_path

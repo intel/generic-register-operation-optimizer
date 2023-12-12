@@ -25,19 +25,19 @@ auto read() -> async::sender auto {
 
 template <typename Group> struct register_for_path_q {
     template <pathlike P>
-    using fn = typename Group::template child_t<P::root()>;
+    using fn = typename Group::template child_t<root(P{})>;
 };
 
 template <typename Group> struct register_for_paths_q {
     template <typename L>
-    using fn =
-        typename Group::template child_t<boost::mp11::mp_front<L>::root()>;
+    using fn = typename register_for_path_q<Group>::template fn<
+        boost::mp11::mp_front<L>>;
 };
 
 template <typename Group> struct field_mask_for_paths_q {
     template <typename L>
-    using mask_t = typename Group::template child_t<
-        boost::mp11::mp_front<L>::root()>::type_t;
+    using mask_t = typename Group::template child_t<root(
+        boost::mp11::mp_front<L>{})>::type_t;
 
     template <typename L> constexpr static auto compute_mask() {
         mask_t<L> mask{};
