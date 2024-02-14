@@ -129,10 +129,10 @@ TEST_CASE("register with multiple field values", "[path]") {
     static_assert(
         std::is_same_v<
             decltype(v),
-            groov::with_value_t<
+            groov::value_path<
                 groov::path<"reg">,
-                stdx::tuple<groov::with_value_t<groov::path<"field1">, int>,
-                            groov::with_value_t<groov::path<"field2">,
+                stdx::tuple<groov::value_path<groov::path<"field1">, int>,
+                            groov::value_path<groov::path<"field2">,
                                                 double>>> const>);
 }
 
@@ -157,7 +157,7 @@ TEST_CASE("retrieve located value by path", "[path]") {
     constexpr auto f = v["reg"_r];
     static_assert(
         std::is_same_v<decltype(f),
-                       groov::with_value_t<groov::path<"field">, int> const>);
+                       groov::value_path<groov::path<"field">, int> const>);
     static_assert(f["field"_f] == 5);
 }
 
@@ -212,3 +212,14 @@ TEST_CASE("path with value without root", "[path]") {
     constexpr auto r = without_root(v);
     static_assert(r["field"_f] == 5);
 }
+
+TEST_CASE("register is pathlike", "[path]") {
+    using namespace groov::literals;
+    static_assert(groov::pathlike<decltype("reg"_r)>);
+}
+
+TEST_CASE("field is pathlike", "[path]") {
+    using namespace groov::literals;
+    static_assert(groov::pathlike<decltype("field"_f)>);
+}
+

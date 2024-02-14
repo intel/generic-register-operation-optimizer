@@ -2,7 +2,7 @@
 #include <async/just.hpp>
 #include <async/sync_wait.hpp>
 
-#include <groov/object.hpp>
+#include <groov/group.hpp>
 #include <groov/path.hpp>
 #include <groov/read.hpp>
 

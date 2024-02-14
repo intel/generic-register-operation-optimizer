@@ -1,4 +1,4 @@
-#include <groov/object.hpp>
+#include <groov/tree.hpp>
 #include <groov/path.hpp>
 #include <groov/resolve.hpp>
 
@@ -117,7 +117,7 @@ TEST_CASE("group with paths", "[object]") {
     constexpr auto x = grp("reg"_r);
     static_assert(
         std::is_same_v<decltype(x),
-                       groov::group_with_paths<
+                       groov::tree<
                            "group", bus,
                            boost::mp11::mp_list<decltype("reg"_r)>, R> const>);
 }
@@ -130,7 +130,7 @@ TEST_CASE("group with paths using operator/", "[object]") {
     constexpr auto x = grp / "reg"_r;
     static_assert(
         std::is_same_v<decltype(x),
-                       groov::group_with_paths<
+                       groov::tree<
                            "group", bus,
                            boost::mp11::mp_list<decltype("reg"_r)>, R> const>);
 }

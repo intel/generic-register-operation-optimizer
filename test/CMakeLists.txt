@@ -13,5 +13,5 @@ function(add_tests)
     endforeach()
 endfunction()
 
-add_tests(group object path read)
+add_tests(path read tree write)
 add_subdirectory(fail)

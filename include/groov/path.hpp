@@ -24,7 +24,8 @@ template <pathlike P> constexpr auto without_root(P const &p) {
     return p.without_root();
 }
 
-template <pathlike Path, typename Value> struct with_value_t : Path {
+template <pathlike Path, typename Value> struct value_path : Path {
+    using path_t = Path;
     using value_t = Value;
     [[no_unique_address]] value_t value;
 
@@ -63,7 +64,7 @@ template <pathlike Path, typename Value> struct with_value_t : Path {
                                                                stdx::tuple>) {
                     return value;
                 } else {
-                    return with_value_t<leftover_t, Value>{{}, value};
+                    return value_path<leftover_t, Value>{{}, value};
                 }
             } else {
                 return leftover_path;
@@ -76,27 +77,27 @@ template <pathlike Path, typename Value> struct with_value_t : Path {
     }
 
     constexpr auto without_root() const {
-        return with_value_t<decltype(groov::without_root(Path{})), Value>{
+        return value_path<decltype(groov::without_root(Path{})), Value>{
             {}, value};
     }
 
   private:
-    friend constexpr auto operator==(with_value_t const &, with_value_t const &)
+    friend constexpr auto operator==(value_path const &, value_path const &)
         -> bool = default;
 
     template <typename P>
         requires(stdx::is_value_specialization_of_v<P, groov::path>)
-    friend constexpr auto operator/(P p, with_value_t const &v) {
-        return with_value_t<decltype(p / Path{}), Value>{{}, v.value};
+    friend constexpr auto operator/(P p, value_path const &v) {
+        return value_path<decltype(p / Path{}), Value>{{}, v.value};
     }
 };
 
 template <stdx::ct_string... Parts> struct path {
     template <typename... Vs> constexpr auto operator()(Vs const &...vs) {
         if constexpr (sizeof...(Vs) > 1) {
-            return with_value_t<path, stdx::tuple<Vs...>>{{}, {vs...}};
+            return value_path<path, stdx::tuple<Vs...>>{{}, {vs...}};
         } else {
-            return with_value_t<path, Vs...>{{}, vs...};
+            return value_path<path, Vs...>{{}, vs...};
         }
     }
 
