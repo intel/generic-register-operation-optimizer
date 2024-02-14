@@ -1,4 +1,5 @@
 #include <groov/path.hpp>
+#include <groov/value_path.hpp>
 
 // EXPECT: Attempting to access value with a mismatched path
 

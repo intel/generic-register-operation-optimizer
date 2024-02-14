@@ -1,5 +1,6 @@
-#include <groov/object.hpp>
+#include <groov/config.hpp>
 #include <groov/path.hpp>
+#include <groov/read_spec.hpp>
 
 #include <cstdint>
 
@@ -7,12 +8,14 @@
 
 namespace {
 struct bus {
-    struct sender {
+    struct dummy_sender {
         using is_sender = void;
     };
-
-    template <auto> static auto read(auto) -> async::sender auto {
-        return sender{};
+    template <auto> static auto read(auto...) -> async::sender auto {
+        return dummy_sender{};
+    }
+    template <auto> static auto write(auto...) -> async::sender auto {
+        return dummy_sender{};
     }
 };
 

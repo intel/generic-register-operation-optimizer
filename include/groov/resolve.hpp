@@ -17,6 +17,12 @@ concept pathlike = requires(T const &t) {
     } -> std::same_as<void>;
 };
 
+template <typename T>
+concept valued = requires { typename T::value_t; };
+
+template <typename T>
+concept valued_pathlike = pathlike<T> and valued<T>;
+
 namespace detail {
 template <stdx::ct_string... Parts>
 constexpr auto get_path(path<Parts...> const &) -> path<Parts...>;
@@ -77,4 +83,13 @@ template <typename... Args> struct resolves_q {
 template <typename T, typename... Args> struct resolve_result_q {
     template <pathlike P> using fn = resolve_t<T, P, Args...>;
 };
+
+template <stdx::ct_string P, stdx::ct_string... Ps>
+constexpr auto root(path<P, Ps...> const &) {
+    return P;
+}
+
+template <pathlike P> constexpr auto without_root(P const &p) {
+    return p.without_root();
+}
 } // namespace groov

@@ -13,5 +13,12 @@ function(add_tests)
     endforeach()
 endfunction()
 
-add_tests(group object path read)
+add_tests(
+    config
+    path
+    read
+    read_spec
+    value_path
+    write
+    write_spec)
 add_subdirectory(fail)
