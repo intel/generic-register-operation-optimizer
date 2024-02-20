@@ -1,4 +1,5 @@
 #include <async/concepts.hpp>
+#include <async/just.hpp>
 #include <async/just_result_of.hpp>
 #include <async/sync_wait.hpp>
 
@@ -164,4 +165,11 @@ TEST_CASE("read mask is passed to bus", "[read]") {
     using namespace groov::literals;
     [[maybe_unused]] auto r = sync_read(grp("reg0.field0"_f, "reg0.field2"_f));
     CHECK(bus::last_mask == 0b111'0000'1u);
+}
+
+TEST_CASE("read is pipeable", "[read]") {
+    using namespace groov::literals;
+    data0 = 0xa5a5'a5a5u;
+    auto r = async::just(grp / "reg0"_r) | groov::read | async::sync_wait();
+    CHECK(get<0>(*r)["reg0"_r] == data0);
 }
