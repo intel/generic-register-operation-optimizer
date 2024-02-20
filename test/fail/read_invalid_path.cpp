@@ -2,34 +2,45 @@
 #include <async/just.hpp>
 #include <async/sync_wait.hpp>
 
-#include <groov/object.hpp>
+#include <groov/config.hpp>
 #include <groov/path.hpp>
 #include <groov/read.hpp>
+#include <groov/read_spec.hpp>
 
 #include <cstdint>
 
-// EXPECT: Invalid path passed to read_result lookup
+// EXPECT: Invalid path passed to write_spec
 
 namespace {
 struct bus {
-    template <auto> static auto read(auto) -> async::sender auto {
+    struct dummy_sender {
+        using is_sender = void;
+    };
+    template <auto> static auto read(auto...) -> async::sender auto {
         return async::just(42);
+    }
+    template <auto> static auto write(auto...) -> async::sender auto {
+        return dummy_sender{};
     }
 };
 
 using F0 = groov::field<"field0", std::uint8_t, 0, 0>;
-using F1 = groov::field<"field1", std::uint8_t, 1, 1>;
 
 std::uint32_t data0{};
-using R0 = groov::reg<"reg0", std::uint32_t, &data0, F0, F1>;
+using R0 = groov::reg<"reg0", std::uint32_t, &data0, F0>;
+std::uint32_t data1{};
+using R1 = groov::reg<"reg1", std::uint32_t, &data1, F0>;
 
-using G = groov::group<"group", bus, R0>;
+using G = groov::group<"group", bus, R0, R1>;
+
+template <typename T> auto sync_read(T const &t) {
+    return get<0>(*(groov::read(t) | async::sync_wait()));
+}
 } // namespace
 
 auto main() -> int {
     using namespace groov::literals;
     constexpr auto grp = G{};
-    auto r = groov::read(grp / "reg0.field0"_f);
-    auto const result = get<0>(*async::sync_wait(r));
-    return result["reg0.field1"_f];
+    auto const result = sync_read(grp("reg0.field0"_f));
+    return result["field1"_f];
 }

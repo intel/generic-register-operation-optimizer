@@ -2,15 +2,13 @@
 #include <async/just_result_of.hpp>
 #include <async/sync_wait.hpp>
 
-#include <groov/object.hpp>
 #include <groov/path.hpp>
 #include <groov/read.hpp>
+#include <groov/read_spec.hpp>
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <concepts>
 #include <cstdint>
-#include <type_traits>
 
 namespace {
 struct bus {
@@ -23,6 +21,13 @@ struct bus {
             last_mask = Mask;
             return *addr;
         });
+    }
+
+    struct dummy_sender {
+        using is_sender = void;
+    };
+    template <auto> static auto write(auto...) -> async::sender auto {
+        return dummy_sender{};
     }
 };
 
@@ -72,6 +77,16 @@ TEST_CASE("read result allows lookup by unambiguous path", "[read]") {
 
     auto r = sync_read(grp / "reg0.field1"_r);
     CHECK(r["reg0.field1"_f] == 0b1010u);
+    CHECK(r["field1"_f] == 0b1010u);
+}
+
+TEST_CASE("extract a field by unambiguous path after reading whole register",
+          "[read]") {
+    using namespace groov::literals;
+    data0 = 0b10101u;
+
+    auto r = sync_read(grp / "reg0"_r);
+    CHECK(r["reg0"_r] == data0);
     CHECK(r["field1"_f] == 0b1010u);
 }
 
