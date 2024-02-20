@@ -12,8 +12,6 @@
 #include <boost/mp11/algorithm.hpp>
 #include <boost/mp11/list.hpp>
 
-template <typename...> struct undef;
-
 namespace groov {
 namespace detail {
 struct no_extract_type {};

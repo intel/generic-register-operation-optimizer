@@ -1,7 +1,10 @@
+#include <async/just.hpp>
 #include <async/just_result_of.hpp>
 #include <async/sync_wait.hpp>
+#include <async/then.hpp>
 
 #include <groov/path.hpp>
+#include <groov/read.hpp>
 #include <groov/value_path.hpp>
 #include <groov/write.hpp>
 #include <groov/write_spec.hpp>
@@ -12,6 +15,7 @@
 
 namespace {
 struct bus {
+    static inline int num_reads{};
     static inline int num_writes{};
     static inline std::uint32_t last_mask{};
 
@@ -24,11 +28,12 @@ struct bus {
         });
     }
 
-    struct dummy_sender {
-        using is_sender = void;
-    };
-    template <auto> static auto read(auto...) -> async::sender auto {
-        return dummy_sender{};
+    template <auto Mask> static auto read(auto addr) -> async::sender auto {
+        return async::just_result_of([=] {
+            ++num_reads;
+            last_mask = Mask;
+            return *addr;
+        });
     }
 };
 
@@ -98,4 +103,24 @@ TEST_CASE("write mask is passed to bus", "[write]") {
     using namespace groov::literals;
     [[maybe_unused]] auto r = sync_write(grp("reg0.field1"_f = 5));
     CHECK(bus::last_mask == 0b1111'0u);
+}
+
+TEST_CASE("write is pipeable", "[write]") {
+    using namespace groov::literals;
+    async::just(grp("reg0"_r = 0xa5a5'a5a5u)) | groov::write |
+        async::sync_wait();
+    CHECK(data0 == 0xa5a5'a5a5u);
+}
+
+TEST_CASE("piped read-modify-write", "[write]") {
+    using namespace groov::literals;
+    data0 = 0xa5a5'a5a5u;
+    async::just(grp / "reg0"_r) //
+        | groov::read           //
+        | async::then([](auto spec) {
+              return grp / ("reg0"_r = spec["reg0"_r] ^ 0xffff'ffff);
+          })           //
+        | groov::write //
+        | async::sync_wait();
+    CHECK(data0 == 0x5a5a'5a5au);
 }
