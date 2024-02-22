@@ -21,6 +21,71 @@ using mask_overlap =
     std::integral_constant<std::remove_cvref_t<decltype(M1::value)>,
                            M1::value & M2::value>;
 template <typename M> using nonzero_mask = std::bool_constant<M::value != 0>;
+
+// NOLINTNEXTLINE(cppcoreguidelines-special-member-functions)
+template <typename R, typename F> struct field_proxy {
+    using type_t = typename F::type_t;
+
+    constexpr explicit field_proxy(R &reg) : r{reg} {}
+    constexpr field_proxy(field_proxy &&) = delete;
+
+    // NOLINTNEXTLINE(google-explicit-constructor)
+    constexpr operator type_t() const { return F::extract(r.value); }
+
+    // NOLINTNEXTLINE(cppcoreguidelines-c-copy-assignment-signature)
+    constexpr auto operator=(type_t v) const && -> void {
+        F::insert(r.value, v);
+    }
+
+    constexpr auto operator+=(type_t v) const && -> void {
+        F::insert(r.value, static_cast<type_t>(*this) + v);
+    }
+    constexpr auto operator-=(type_t v) const && -> void {
+        F::insert(r.value, static_cast<type_t>(*this) - v);
+    }
+    constexpr auto operator*=(type_t v) const && -> void {
+        F::insert(r.value, static_cast<type_t>(*this) * v);
+    }
+    constexpr auto operator/=(type_t v) const && -> void {
+        F::insert(r.value, static_cast<type_t>(*this) / v);
+    }
+    constexpr auto operator%=(type_t v) const && -> void {
+        F::insert(r.value, static_cast<type_t>(*this) % v);
+    }
+    constexpr auto operator|=(type_t v) const && -> void {
+        F::insert(r.value, static_cast<type_t>(*this) | v);
+    }
+    constexpr auto operator&=(type_t v) const && -> void {
+        F::insert(r.value, static_cast<type_t>(*this) & v);
+    }
+    constexpr auto operator^=(type_t v) const && -> void {
+        F::insert(r.value, static_cast<type_t>(*this) ^ v);
+    }
+
+    constexpr auto operator++() const && -> void {
+        auto v = static_cast<type_t>(*this);
+        F::insert(r.value, ++v);
+    }
+    constexpr auto operator--() const && -> void {
+        auto v = static_cast<type_t>(*this);
+        F::insert(r.value, --v);
+    }
+    constexpr auto operator++(int) const && -> type_t {
+        auto v = static_cast<type_t>(*this);
+        auto ret = v;
+        F::insert(r.value, ++v);
+        return ret;
+    }
+    constexpr auto operator--(int) const && -> type_t {
+        auto v = static_cast<type_t>(*this);
+        auto ret = v;
+        F::insert(r.value, --v);
+        return ret;
+    }
+
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members)
+    R &r;
+};
 } // namespace detail
 
 template <typename Group, typename Paths, typename Value>
@@ -36,8 +101,7 @@ struct write_spec : Group {
                            boost::mp11::mp_front<paths_t>>::type_t,
         detail::no_extract_type>;
 
-  public:
-    template <pathlike P> constexpr auto operator[](P const &) const {
+    template <pathlike P> constexpr static auto find_index() -> std::size_t {
         using actual_field_masks_t =
             boost::mp11::mp_transform_q<detail::field_mask_for_reg_q<paths_t>,
                                         value_t>;
@@ -55,10 +119,25 @@ struct write_spec : Group {
         } else {
             using index_t =
                 boost::mp11::mp_find_if<masks_t, detail::nonzero_mask>;
-            auto const &r = stdx::get<index_t::value>(value);
-            using F = resolve_t<decltype(r), P>;
-            return F::extract(r.value);
+            return index_t::value;
         }
+        return {};
+    }
+
+  public:
+    template <pathlike P> constexpr auto operator[](P const &) {
+        constexpr auto idx = find_index<P>();
+        auto &r = stdx::get<idx>(value);
+        using R = decltype(r);
+        return detail::field_proxy<R, resolve_t<R, P>>{r};
+    }
+
+    template <pathlike P> constexpr auto operator[](P const &) const {
+        constexpr auto idx = find_index<P>();
+        auto &r = stdx::get<idx>(value);
+        using R = decltype(r);
+        using F = resolve_t<R, P>;
+        return F::extract(r.value);
     }
 
     // NOLINTNEXTLINE(google-explicit-constructor)

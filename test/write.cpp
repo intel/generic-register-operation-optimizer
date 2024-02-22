@@ -118,7 +118,8 @@ TEST_CASE("piped read-modify-write", "[write]") {
     async::just(grp / "reg0"_r) //
         | groov::read           //
         | async::then([](auto spec) {
-              return grp / ("reg0"_r = spec["reg0"_r] ^ 0xffff'ffff);
+              spec["reg0"_r] ^= 0xffff'ffff;
+              return spec;
           })           //
         | groov::write //
         | async::sync_wait();
