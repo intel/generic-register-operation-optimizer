@@ -73,7 +73,7 @@ TEST_CASE("operator/ is overloaded to make write_spec", "[write_spec]") {
 
 TEST_CASE("write spec can be indexed by path", "[write_spec]") {
     using namespace groov::literals;
-    auto spec = grp("reg0"_r = 5);
+    auto const spec = grp("reg0"_r = 5);
     CHECK(spec["reg0"_r] == 5);
 }
 
@@ -103,4 +103,40 @@ TEST_CASE("write spec with only one value implicitly converts",
     using namespace groov::literals;
     auto spec = grp("reg0"_r = 5);
     CHECK(spec == 5);
+}
+
+TEST_CASE("write spec indexing supports assignment", "[write_spec]") {
+    using namespace groov::literals;
+    auto spec = grp("reg0"_r = 5);
+    spec["reg0"_r] = 4;
+    CHECK(spec["reg0"_r] == 4);
+}
+
+TEST_CASE("write spec indexing supports op-assignment", "[write_spec]") {
+    using namespace groov::literals;
+    auto spec = grp("reg0"_r = 5);
+    spec["reg0"_r] += 1;
+    spec["reg0"_r] -= 1;
+    spec["reg0"_r] *= 1;
+    spec["reg0"_r] /= 1;
+    spec["reg0"_r] %= 6;
+    CHECK(spec["reg0"_r] == 5);
+    spec["reg0"_r] &= 3;
+    CHECK(spec["reg0"_r] == 1);
+    spec["reg0"_r] |= 4;
+    CHECK(spec["reg0"_r] == 5);
+    spec["reg0"_r] ^= 4;
+    CHECK(spec["reg0"_r] == 1);
+}
+
+TEST_CASE("write spec indexing supports increment/decrement", "[write_spec]") {
+    using namespace groov::literals;
+    auto spec = grp("reg0"_r = 5);
+    ++spec["reg0"_r];
+    --spec["reg0"_r];
+    CHECK(spec["reg0"_r] == 5);
+
+    CHECK(spec["reg0"_r]++ == 5);
+    CHECK(spec["reg0"_r]-- == 6);
+    CHECK(spec["reg0"_r] == 5);
 }
