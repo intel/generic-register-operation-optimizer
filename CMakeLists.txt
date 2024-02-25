@@ -14,6 +14,8 @@ add_versioned_package("gh:intel/cpp-std-extensions#dcbb8ba")
 add_versioned_package("gh:intel/cpp-baremetal-senders-and-receivers#eb4239f")
 add_versioned_package("gh:intel/safe-arithmetic#9ea549a")
 
+find_package(Python3 COMPONENTS Interpreter)
+
 if(NOT DEFINED CMAKE_CXX_STANDARD)
     set(CMAKE_CXX_STANDARD 20)
 endif()
@@ -29,3 +31,5 @@ if(PROJECT_IS_TOP_LEVEL)
     add_subdirectory(test)
     clang_tidy_interface(groov)
 endif()
+
+add_subdirectory(tools)

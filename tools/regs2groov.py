@@ -42,7 +42,7 @@ def parse_svd(filename):
     return [mk_group(p, root) for p in root.findall('.//peripheral')]
 
 
-def generate_groups(groups, dest, namespace, name_func):
+def generate_groups(groups, dest, namespace, name_func, peripherals):
     def indent(lines, len=4):
         if lines:
             prefix = "\n" + (" " * len)
@@ -71,7 +71,12 @@ def generate_groups(groups, dest, namespace, name_func):
         registers = indent([generate_register(r) for r in g.registers], len = 8)
         return f"""constexpr auto {name_func(g.name)} = \n    groov::group<"{name_func(g.name)}", groov::mmio_bus{registers}>{{}};\n"""
 
+    peripherals = [p.lower() for p in peripherals]
+
     for defn in groups:
+        if peripherals and (defn.name.lower() not in peripherals):
+            continue 
+
         g = generate_group(defn)
         with open(f"{dest}/{name_func(defn.name)}.hpp", "w") as f:
             print("#include <groov.hpp>", file=f)
@@ -90,6 +95,10 @@ def parse_cmdline():
         help=(
             "Full path to SVD file with register definitions."
         ),
+    )
+
+    parser.add_argument(
+        "--peripherals", type=str, nargs='+', help="One or more peripherals to generate a header for."
     )
 
     parser.add_argument(
@@ -132,7 +141,7 @@ def name_func(choice):
 def main():
     args = parse_cmdline()
     groups = parse_svd(args.input)
-    generate_groups(groups, args.output, args.namespace, name_func(args.naming))
+    generate_groups(groups, args.output, args.namespace, name_func(args.naming), args.peripherals)
 
 if __name__ == "__main__":
     main()
