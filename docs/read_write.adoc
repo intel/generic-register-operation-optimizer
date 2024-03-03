@@ -89,8 +89,8 @@ auto r = groov::write(grp("reg"_r = 42));
 
 It does this by:
 
- - computing a mask for each register that is written, according to the fields
- - for each register, calling `write` on the bus with the address, mask and value
+ - computing masks and identity values for each register that is written, according to the fields
+ - for each register, calling `write` on the bus with the address, masks and value
  - executing `when_all` on the resulting senders
 
 Write can also be piped in a chain of senders.
@@ -128,10 +128,10 @@ is used by `read` and `write`. So it has its own `read` and `write` API.
 ----
 struct bus {
   template <auto Mask>
-  static auto write(auto addr, auto value) -> async::sender auto;
-
-  template <auto Mask>
   static auto read(auto addr) -> async::sender auto;
+
+  template <auto Mask, auto IdMask, auto IdValue>
+  static auto write(auto addr, auto value) -> async::sender auto;
 };
 ----
 
@@ -140,4 +140,7 @@ return senders. These can of course be `async::just_result_of` senders in the
 case of a synchronous operation like memory-mapped IO.
 
 Both `read` and `write` operations receive a compile-time mask of what is being
-read or written, so that they can optimize best according to hardware capabilities.
+read or written, so that they can optimize best according to hardware
+capabilities. For `write`, bits set in `Mask` are the bits that must be written,
+and bits set in `IdMask` _may_ be safely written using the corresponding bits in
+`IdValue`.

@@ -18,12 +18,16 @@ struct bus {
     static inline int num_reads{};
     static inline int num_writes{};
     static inline std::uint32_t last_mask{};
+    static inline std::uint32_t last_id_mask{};
+    static inline std::uint32_t last_id_value{};
 
-    template <auto Mask>
+    template <auto Mask, auto IdMask, auto IdValue>
     static auto write(auto addr, auto value) -> async::sender auto {
         return async::just_result_of([=] {
             ++num_writes;
             last_mask = Mask;
+            last_id_mask = IdMask;
+            last_id_value = IdValue;
             *addr = (*addr & ~Mask) | value;
         });
     }
@@ -42,9 +46,11 @@ using F1 = groov::field<"field1", std::uint8_t, 4, 1>;
 using F2 = groov::field<"field2", std::uint8_t, 7, 5>;
 
 std::uint32_t data0{};
-using R0 = groov::reg<"reg0", std::uint32_t, &data0, F0, F1, F2>;
+using R0 =
+    groov::reg<"reg0", std::uint32_t, &data0, groov::w::replace, F0, F1, F2>;
 std::uint32_t data1{};
-using R1 = groov::reg<"reg1", std::uint32_t, &data1, F0, F1, F2>;
+using R1 =
+    groov::reg<"reg1", std::uint32_t, &data1, groov::w::replace, F0, F1, F2>;
 
 using G = groov::group<"group", bus, R0, R1>;
 constexpr auto grp = G{};
@@ -114,14 +120,14 @@ TEST_CASE("write is pipeable", "[write]") {
 
 TEST_CASE("piped read-modify-write", "[write]") {
     using namespace groov::literals;
-    data0 = 0xa5a5'a5a5u;
+    data0 = 0xa5u;
     async::just(grp / "reg0"_r) //
         | groov::read           //
         | async::then([](auto spec) {
-              spec["reg0"_r] ^= 0xffff'ffff;
+              spec["reg0"_r] ^= 0xff;
               return spec;
           })           //
         | groov::write //
         | async::sync_wait();
-    CHECK(data0 == 0x5a5a'5a5au);
+    CHECK(data0 == 0x5au);
 }

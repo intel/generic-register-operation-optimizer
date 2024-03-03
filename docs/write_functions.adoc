@@ -1,0 +1,119 @@
+
+=== Write Functions
+
+Each field and register is parameterized with a _write function_. By default,
+the write function is `groov::w::replace`.
+
+[source,cpp]
+----
+using my_field = groov::field<"field", std::uint32_t, 3, 0, groov::w::replace>;
+----
+
+==== Write functions
+
+Built-in write functions are in the `groov::w` namespace. Examples are:
+
+- `replace` ("normal write")
+- `read_only`
+
+There are 16 possible write functions, each characterized by a truth table
+relating the current value *C*, the written value *W* and the result *R*. For
+example:
+
+.Truth table for replacement
+[width=30%,cols="1,1,1"]
+|===
+^h|C ^h|W ^h|R
+
+^|0 ^|0 ^|0
+^|0 ^|1 ^|1
+^|1 ^|0 ^|0
+^|1 ^|1 ^|1
+|===
+
+.Truth table for read-only
+[width=30%,cols="1,1,1"]
+|===
+^h|C ^h|W ^h|R
+
+^|0 ^|0 ^|0
+^|0 ^|1 ^|0
+^|1 ^|0 ^|1
+^|1 ^|1 ^|1
+|===
+
+==== Identity specs
+
+Each write function may have an identity spec indicated by its truth table and
+exposed as the alias `id_spec`. For replacement, the identity spec is `none`.
+For read-only, the identity spec is `any`. There are 4 possible identity specs:
+
+- `none`
+- `zero`
+- `one`
+- `any`
+
+Each identity spec (except `none`) has a function that computes the identity for
+a field according to its bit range:
+
+[source,cpp]
+----
+template <std::unsigned_integral T, std::size_t Msb, std::size_t Lsb>
+constexpr static auto identity() -> T;
+----
+
+==== Building the write masks
+
+In general a given write to a register will only want to write some of the field
+values. The other field values are left unspecified. The write machinery uses
+the field write functions and their associated identity specs to compute:
+
+- the write mask for the fields to be written
+- the identity mask for the other fields
+- the identity value (if any) for the other fields
+
+For example:
+
+[source,cpp]
+----
+// the default write function is groov::w::replace
+using my_field_0 = groov::field<"field_0", std::uint32_t, 9, 0>;
+using my_field_1 = groov::field<"field_1", std::uint32_t, 31, 10>;
+using my_reg = groov::reg<"reg", std::uint32_t, 0xa'0000, groov::w:replace,
+                           my_field_0, my_field_1>;
+
+// when writing only field_1:
+write(grp("my_reg.field_1"_f = 42));
+
+// results in a call to bus::write as if:
+constexpr auto write_mask = 0xffff'fc00u; // mask for field_1
+constexpr auto identity_mask = 0u;        // field_0 has id_spec none
+constexpr auto identity_value = 0u;       // field_0 has id_spec none
+
+// the write mask and the identity mask don't cover the range of the register,
+// so the bus must read-modify-write to preserve unwritten bits
+bus::template write<write_mask, identity_mask, identity_value>(/* ... */);
+----
+
+But if the unwritten field(s) are read-only (or otherwise have an identity):
+
+[source,cpp]
+----
+using my_field_0 = groov::field<"field_0", std::uint32_t, 9, 0, groov::w::read_only>;
+using my_field_1 = groov::field<"field_1", std::uint32_t, 31, 10>;
+using my_reg = groov::reg<"reg", std::uint32_t, 0xa'0000, groov::w:replace,
+                           my_field_0, my_field_1>;
+
+// when writing only field_1:
+write(grp("my_reg.field_1"_f = 42));
+
+// results in a call to bus::write as if:
+constexpr auto write_mask = 0xffff'fc00u;    // mask for field_1
+constexpr auto identity_mask = 0x0000'03ffu; // field_0 has id_spec any
+constexpr auto identity_value = 0u;          // field_0 has id_spec any (zeroes are arbitrary)
+
+// the write mask and the identity mask cover the range of the register,
+// so the bus may OR the identity value with the written value to preserve
+// unwritten bits and avoid read-modify-write
+bus::template write<write_mask, identity_mask, identity_value>(/* ... */);
+----

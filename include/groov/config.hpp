@@ -2,6 +2,7 @@
 
 #include <async/concepts.hpp>
 
+#include <groov/identity.hpp>
 #include <groov/make_spec.hpp>
 #include <groov/resolve.hpp>
 
@@ -52,9 +53,8 @@ template <typename C, stdx::ct_string Name>
 using get_child = typename C::template child_t<Name>;
 
 template <typename T>
-concept fieldlike = named<T> and containerlike<T> and
-                    std::unsigned_integral<decltype(T::mask)> and
-                    requires { typename T::type_t; };
+concept fieldlike =
+    named<T> and containerlike<T> and requires { typename T::type_t; };
 
 namespace detail {
 template <typename T, pathlike P> constexpr auto recursive_resolve(P);
@@ -91,19 +91,32 @@ template <typename T, pathlike P> constexpr auto recursive_resolve(P p) {
 } // namespace detail
 
 template <stdx::ct_string Name, typename T, std::size_t Msb, std::size_t Lsb,
-          fieldlike... SubFields>
+          write_function WriteFn = w::replace, fieldlike... SubFields>
+    requires std::is_trivial_v<T>
 struct field : named_container<Name, SubFields...> {
     using type_t = T;
-    constexpr static auto mask = ((1u << (Msb - Lsb + 1u)) - 1u) << Lsb;
+    using write_fn_t = WriteFn;
+    using id_spec_t = typename write_fn_t::id_spec;
 
     template <std::unsigned_integral RegType>
-    constexpr static auto extract(RegType value) {
-        return static_cast<type_t>((value & mask) >> Lsb);
+    constexpr static auto identity =
+        detail::compute_identity<id_spec_t, RegType, Msb, Lsb>();
+
+    template <std::unsigned_integral RegType>
+    constexpr static auto mask = detail::compute_mask<RegType, Msb, Lsb>();
+
+    template <std::unsigned_integral RegType>
+    constexpr static auto identity_mask =
+        detail::compute_identity_mask<id_spec_t, RegType, Msb, Lsb>();
+
+    template <std::unsigned_integral RegType>
+    constexpr static auto extract(RegType value) -> type_t {
+        return static_cast<type_t>((value & mask<RegType>) >> Lsb);
     }
 
     template <std::unsigned_integral RegType>
-    constexpr static void insert(RegType &dest, type_t value) {
-        dest = (dest & ~mask) | (static_cast<RegType>(value) << Lsb);
+    constexpr static auto insert(RegType &dest, type_t value) -> void {
+        dest = (dest & ~mask<RegType>) | (static_cast<RegType>(value) << Lsb);
     }
 
     template <pathlike P> constexpr static auto resolve(P p) {
@@ -112,19 +125,19 @@ struct field : named_container<Name, SubFields...> {
 };
 
 template <stdx::ct_string Name, std::unsigned_integral T, auto Address,
-          fieldlike... Fields>
-struct reg : named_container<Name, Fields...> {
-    using type_t = T;
-    constexpr static auto mask = std::numeric_limits<type_t>::max();
-
+          write_function WriteFn = w::replace, fieldlike... Fields>
+struct reg : field<Name, T, std::numeric_limits<T>::digits - 1, 0u, WriteFn,
+                   Fields...> {
     using address_t = decltype(Address);
     constexpr static auto address = Address;
 
-    constexpr static auto extract(std::unsigned_integral auto value) {
+    template <std::same_as<T> RegType>
+    constexpr static auto extract(RegType value) {
         return value;
     }
 
-    constexpr static auto insert(type_t &dest, type_t value) -> void {
+    template <std::same_as<T> RegType>
+    constexpr static auto insert(RegType &dest, RegType value) -> void {
         dest = value;
     }
 
@@ -145,8 +158,11 @@ concept registerlike = fieldlike<T> and requires {
 
 template <typename T, typename Reg>
 concept bus_for = requires(typename Reg::type_t data) {
-    { T::template read<Reg::mask>(Reg::address) } -> async::sender;
-    { T::template write<Reg::mask>(Reg::address, data) } -> async::sender;
+    { T::template read<typename Reg::type_t{}>(Reg::address) } -> async::sender;
+    {
+        T::template write<typename Reg::type_t{}, typename Reg::type_t{},
+                          typename Reg::type_t{}>(Reg::address, data)
+    } -> async::sender;
 };
 
 template <stdx::ct_string Name, typename Bus, registerlike... Registers>
@@ -198,22 +214,70 @@ template <typename Group> struct register_for_paths_q {
         boost::mp11::mp_front<L>>;
 };
 
-template <typename Paths> struct field_mask_for_reg_q {
-    template <typename R> using mask_t = typename R::type_t;
-
-    template <typename R> constexpr static auto compute_mask() {
-        mask_t<R> mask{};
-        stdx::template_for_each<Paths>([&]<typename P>() {
-            using object_t = resolve_t<R, P>;
-            if constexpr (not std::same_as<object_t, invalid_t>) {
-                mask |= object_t::mask;
-            }
-        });
-        return mask;
-    }
+template <typename Paths> struct fields_for_reg_q {
+    template <typename R> struct resolve_path_t {
+        template <typename P> using fn = resolve_t<R, P>;
+    };
 
     template <typename R>
-    using fn = std::integral_constant<mask_t<R>, compute_mask<R>()>;
+    using fields_t = boost::mp11::mp_transform_q<resolve_path_t<R>, Paths>;
+
+    template <typename R>
+    using fn = boost::mp11::mp_remove<fields_t<R>, invalid_t>;
 };
+
+template <typename M1, typename M2>
+using bitwise_or_t =
+    std::integral_constant<typename M1::value_type, M1::value | M2::value>;
+
+template <typename Reg> struct mask_q {
+    template <typename Obj>
+    using fn = std::integral_constant<typename Reg::type_t,
+                                      Obj::template mask<typename Reg::type_t>>;
+};
+
+template <typename Reg> struct id_mask_q {
+    template <typename Obj>
+    using fn = std::integral_constant<
+        typename Reg::type_t,
+        Obj::template identity_mask<typename Reg::type_t>>;
+};
+
+template <typename Reg> struct id_value_q {
+    template <typename Obj>
+    using fn =
+        std::integral_constant<typename Reg::type_t,
+                               Obj::template identity<typename Reg::type_t>>;
+};
+
+template <typename ObjList, template <typename...> typename QFn, typename Reg>
+using bitwise_accum_t =
+    boost::mp11::mp_fold<boost::mp11::mp_transform_q<QFn<Reg>, ObjList>,
+                         std::integral_constant<typename Reg::type_t, 0>,
+                         bitwise_or_t>;
+
+template <typename Paths> struct field_mask_for_reg_q {
+    template <typename R>
+    using fn = bitwise_accum_t<typename fields_for_reg_q<Paths>::template fn<R>,
+                               mask_q, R>;
+};
+
+template <typename Obj>
+using get_children =
+    stdx::conditional_t<boost::mp11::mp_empty<typename Obj::children_t>::value,
+                        boost::mp11::mp_list<Obj>, typename Obj::children_t>;
+
+template <typename ObjList>
+using expand_children =
+    boost::mp11::mp_flatten<boost::mp11::mp_transform<get_children, ObjList>>;
+
+template <typename ObjList>
+using maybe_expand_children =
+    std::enable_if_t<not std::is_same_v<ObjList, expand_children<ObjList>>,
+                     expand_children<ObjList>>;
+
+template <typename ObjList>
+using all_fields_t = boost::mp11::mp_back<boost::mp11::mp_iterate<
+    ObjList, boost::mp11::mp_identity_t, maybe_expand_children>>;
 } // namespace detail
 } // namespace groov

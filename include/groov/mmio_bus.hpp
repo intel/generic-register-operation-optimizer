@@ -53,15 +53,9 @@ struct cpp_mem_iface {
 template <typename HardwareInterface = cpp_mem_iface> struct mmio_bus {
     using iface = HardwareInterface;
 
-#if __clang_major__ == 16
-    // workaround strange clang-16 ice
-    template <auto Mask>
+    template <auto Mask, decltype(Mask) IdMask, decltype(Mask) IdValue>
         requires std::unsigned_integral<decltype(Mask)>
-#else
-    template <std::unsigned_integral auto Mask>
-#endif
-    static auto write(auto addr, std::unsigned_integral auto value)
-        -> async::sender auto {
+    static auto write(auto addr, decltype(Mask) value) -> async::sender auto {
         using base_type = decltype(Mask);
 
         constexpr std::size_t lsb = std::countr_zero(Mask);
