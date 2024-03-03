@@ -5,3 +5,6 @@
 :rouge-style: base16.solarized
 :source-language: c++
 :toc: left
+
+include::intro.adoc[]
+include::field_write_semantics.adoc[]

@@ -1,0 +1,16 @@
+== Introduction
+
+Generic Register Operation Optimizer (`groov`) is a library that abstracts read
+and write operations on registers in baremetal embedded systems.
+
+== Dependencies
+
+This repository uses https://github.com/cpm-cmake/CPM.cmake[CPM] and a
+https://github.com/intel/cicd-repo-infrastructure[common CI/CD infrastructure].
+
+The library dependencies are:
+
+- https://github.com/boostorg/mp11[Boost.MP11]
+- https://github.com/intel/cpp-std-extensions[C++ std extensions (`stdx`)]
+- https://github.com/intel/cpp-baremetal-senders-and-receivers[Baremetal Senders & Receivers]
+- https://github.com/intel/safe-arithmetic[Safe Arithmetic]
