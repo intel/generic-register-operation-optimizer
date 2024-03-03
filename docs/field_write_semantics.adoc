@@ -1,0 +1,129 @@
+
+== Field Write Semantics
+
+Each field in a register is parameterized with a position -- the closed
+(inclusive) range from LSB to MSB, from which a mask can be derived -- and a
+_write function_.
+
+=== Write functions
+
+Examples of write functions are:
+
+- replacement ("normal write")
+- read-only
+- write 1 to clear
+
+There are 16 possible write functions, each characterized by a truth table
+relating the current value *C*, the written value *W* and the result *R*. For
+example:
+
+.Truth table for replacement
+[width=30%,cols="1,1,1"]
+|===
+^h|C ^h|W ^h|R
+
+^|0 ^|0 ^|0
+^|0 ^|1 ^|1
+^|1 ^|0 ^|0
+^|1 ^|1 ^|1
+|===
+
+.Truth table for read-only
+[width=30%,cols="1,1,1"]
+|===
+^h|C ^h|W ^h|R
+
+^|0 ^|0 ^|0
+^|0 ^|1 ^|0
+^|1 ^|0 ^|1
+^|1 ^|1 ^|1
+|===
+
+=== Identity specs
+
+Each such write function has an _identity spec_ indicated by its truth table.
+For replacement, the identity spec is *none*. For read-only, the identity spec
+is *don't care*. There are 5 possible identity specs, denoted as follows:
+
+- *E* - none
+- *0* - 0 is the identity
+- *1* - 1 is the identity
+- *X* - don't care
+- *** - either 0 or 1 is the identity
+
+NOTE: *\** is not a value associated with any write function, but it is necessary
+for this operation to be closed. The difference between *X* and *** is that *X*
+is truly "don't care" where *\** is one of *0* or *1*, and only one of them
+works. *** could also be termed the "natural" or "dependent" value for the
+identity.
+
+We can define a binary commutative function on these identity specs:
+
+.Identity spec function
+[width=30%,cols="1,1,1"]
+|===
+^h|A ^h|B ^h|R
+
+^|E ^|E ^|E
+^|E ^|0 ^|E
+^|E ^|1 ^|E
+^|E ^|X ^|E
+^|E ^|* ^|E
+
+^|0 ^|0 ^|0
+^|0 ^|1 ^|*
+^|0 ^|X ^|0
+^|0 ^|* ^|*
+
+^|1 ^|1 ^|1
+^|1 ^|X ^|1
+^|1 ^|* ^|*
+
+^|X ^|* ^|*
+^|X ^|X ^|X
+
+^|* ^|* ^|*
+|===
+
+=== Building the masks
+
+In general a given write to a register will only want to write some of the field
+values. The other field values are left unspecified. We can compute the common
+identity spec for the write by folding the spec function across all the fields
+within the register which were _not_ specified by the write.
+
+If the common identity spec is *E*, a read-modify-write must occur. Otherwise,
+we can obtain identity values for the unspecified fields as follows:
+
+- *E* -> no value; RMW
+- *0* -> field value of all zeroes
+- *1* -> field value of all ones
+- *X* -> field value of all zeroes (an arbitrary choice)
+- *** -> field value according to the (identity of the) field's write function
+
+By combining identity values for unspecified fields as appropriate, we can
+optimize a register write at compile-time.
+
+=== Call-site write semantics
+
+Sometimes we might want to specify a write function at the `write` call site.
+For example, we might want to perform an XOR-write into a register. This of
+course is its characterizing truth table:
+
+.Truth table for XOR
+[width=30%,cols="1,1,1"]
+|===
+^h|C ^h|W ^h|R
+
+^|0 ^|0 ^|0
+^|0 ^|1 ^|1
+^|1 ^|0 ^|1
+^|1 ^|1 ^|0
+|===
+
+It is clear that the identity spec for XOR is *0*. If we combine this with the
+common identity spec for the write and still get *0*, we have the opportunity
+for the call-site write function to control the write further, for example by
+modifying the write address itself. Thus we can allow for hardware (like the
+https://www.raspberrypi.com/documentation/microcontrollers/rp2040.html[RP2040])
+that supports different write modes with address offsets.
