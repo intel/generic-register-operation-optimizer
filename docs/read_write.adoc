@@ -1,0 +1,143 @@
+
+== Reading and writing
+
+=== Read and write specifications
+
+If a group is combined with paths _without_ values, the result is a `read_spec`.
+If a group is combined with paths _with_ values, the result is a `write_spec`.
+
+A `read_spec` is an empty object which carries in its type all the information
+necessary for a read. A `write_spec` is an object carrying similar type
+information, but also with register data in the correct layout, ready for writing.
+
+[source,cpp]
+----
+// this does no runtime work, just composing types
+auto r_spec = grp / "reg"_r;
+
+// this packs values into register layouts
+auto w_spec = grp / ("reg"_r = 42);
+----
+
+NOTE: If any bound paths are not resolvable or are ambiguous in the group, a
+compile-time error is produced.
+
+A `write_spec` supports indexing, for retrieving or updating values.
+
+[source,cpp]
+----
+auto w_spec = grp / ("reg"_r = 42);
+w_spec["reg"_r] = 17;          // update value
+assert(w_spec["reg"_r] == 17); // retrieve value
+----
+
+Updates are not limited to reassignment; `operator[]` returns a proxy object
+with all the compound assignment operators defined on it, as well as increment
+and decrement operators.
+
+A `write_spec` may be indexed with any path that is resolvable by a bound path.
+
+[source,cpp]
+----
+auto w_spec = grp / ("reg"_r = 42); // "reg" is bound
+w_spec["reg.field"_f] = 1;          // OK, assuming "reg" contains "field"
+----
+
+As a short cut, if only one value is specified, a `write_spec` can implicitly
+convert to that value. Note that this is read-only; the converted value is not a
+reference that can be used for update.
+
+[source,cpp]
+----
+auto w_spec = grp / ("reg"_r = 42);
+assert(w_spec == 42); // implicit conversion
+----
+
+=== Read
+
+The `read` function takes a `read_spec` and produces a
+https://intel.github.io/cpp-baremetal-senders-and-receivers/[sender].
+
+[source,cpp]
+----
+auto r = groov::read(grp / "reg"_r);
+----
+
+It does this by:
+
+ - computing a mask for each register that is read, according to the fields
+ - for each register, calling `read` on the bus with the address and mask
+ - executing `when_all` on the resulting senders
+ - turning the results into a `write_spec`
+
+Read can also be piped in a chain of senders.
+
+[source,cpp]
+----
+auto r = async::just(grp / "reg"_r) | groov::read | async::sync_wait();
+----
+
+=== Write
+
+The `write` function takes a `write_spec` and produces a
+https://intel.github.io/cpp-baremetal-senders-and-receivers/[sender].
+
+[source,cpp]
+----
+auto r = groov::write(grp("reg"_r = 42));
+----
+
+It does this by:
+
+ - computing a mask for each register that is written, according to the fields
+ - for each register, calling `write` on the bus with the address, mask and value
+ - executing `when_all` on the resulting senders
+
+Write can also be piped in a chain of senders.
+
+[source,cpp]
+----
+auto r = async::just(grp("reg"_r = 42)) | groov::write | async::sync_wait();
+----
+
+NOTE: `read` and `write` are function objects, hence in a chain they appear as
+e.g. `groov::read` rather than `groov::read()`.
+
+Because `read` sends a `write_spec`, a read-modify-write can be achieved with
+piping:
+
+[source,cpp]
+----
+async::just(grp / "reg"_r)
+    | groov::read
+    | async::then(
+      [](auto spec) { spec["reg"_r] ^= 0xffff'ffff;
+                      return spec; })
+    | groov::write
+    | async::sync_wait();
+----
+
+=== Buses
+
+`groov` is a library for orchestrating and managing read and write operations
+efficiently, but it can't actually perform the reads and writes to hardware.
+That's what a bus is for. A bus is `groov`​'s interface with lower levels and it
+is used by `read` and `write`. So it has its own `read` and `write` API.
+
+[source,cpp]
+----
+struct bus {
+  template <auto Mask>
+  static auto write(auto addr, auto value) -> async::sender auto;
+
+  template <auto Mask>
+  static auto read(auto addr) -> async::sender auto;
+};
+----
+
+To provide for asynchronous behaviour, a bus's `read` and `write` functions
+return senders. These can of course be `async::just_result_of` senders in the
+case of a synchronous operation like memory-mapped IO.
+
+Both `read` and `write` operations receive a compile-time mask of what is being
+read or written, so that they can optimize best according to hardware capabilities.

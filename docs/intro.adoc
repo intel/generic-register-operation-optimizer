@@ -1,7 +1,18 @@
 == Introduction
 
 Generic Register Operation Optimizer (`groov`) is a library that abstracts read
-and write operations on registers in baremetal embedded systems.
+and write operations on registers in baremetal embedded systems. Some important
+features of `groov` are:
+
+- Abstraction through separation of name and layout: where possible, registers
+  and fields are referenced by name and manipulated with strong types rather
+  than by poking bits into the layout.
+- Awareness of asynchronous operation: read and write operations are not just
+  assumed to be synchronous to memory, but are modelled with senders to allow
+  for asynchronous event-driven scenarios. Synchronous behaviour is still
+  supported since it is a subset of asynchronous behaviour.
+- Error handling: the same mechanism that allows read and write operations to be
+  asynchronous also provides a path for errors.
 
 == Dependencies
 

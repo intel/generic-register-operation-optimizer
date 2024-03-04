@@ -7,4 +7,8 @@
 :toc: left
 
 include::intro.adoc[]
+include::config.adoc[]
+include::paths.adoc[]
+include::groups.adoc[]
+include::read_write.adoc[]
 include::field_write_semantics.adoc[]

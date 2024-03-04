@@ -1,0 +1,53 @@
+
+== Registers and Fields
+
+Registers and fields (`reg` and `field` types) define data layout. They are
+empty types. A register represents an addressable unit of storage, which
+contains fields located in certain bit ranges. Fields may in turn contain
+(sub)fields.
+
+[source,cpp]
+----
+// two subfields located at [1:0] and [3:2]
+using my_sub_field_0 = groov::field<"sub_field_0", std::uint32_t, 1, 0>;
+using my_sub_field_1 = groov::field<"sub_field_1", std::uint32_t, 3, 2>;
+
+// a field located at [3:0] containing the above subfields
+using my_field_0 = groov::field<"field_0", std::uint32_t, 3, 0, my_sub_field_0, my_sub_field_1>;
+// a field located at [7:4]
+using my_field_1 = groov::field<"field_1", std::uint32_t, 7, 4>;
+
+// a register (address 0xa'0000) containing the above fields
+using my_reg = groov::reg<"reg", std::uint32_t, 0xa'0000, my_field_0, my_field_1>;
+----
+
+Registers and fields are quite similar with similar interfaces; the only real
+difference is that a register includes an address.
+
+=== Types
+
+Both registers and fields expose a `type_t` alias indicating the type of the
+data. For registers, this is an unsigned integral type suitable for bitwise
+operations. The type of a field is not so constrained and represents the "API"
+type.
+
+NOTE: At the moment it is assumed that fields occupy contiguous storage entirely
+within a register.
+
+=== Masks
+
+Both registers and fields expose a `mask` that indicates their bit extent. For
+registers, this is equivalent to the maximum value of their `type_t`.
+
+=== Extract and insert
+
+Both registers and fields implement `extract` and `insert` operations.
+
+[source,cpp]
+----
+template <std::unsigned_integral T>
+[[nodiscard]] constexpr static auto extract(T value) -> type_t;
+
+template <std::unsigned_integral T>
+constexpr static void insert(T &dest, type_t value) -> void;
+----
