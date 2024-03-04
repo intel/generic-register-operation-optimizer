@@ -1,0 +1,36 @@
+
+== Groups
+
+A group collects registers together with a xref:read_write.adoc#_buses[bus]. A
+bus provides read and write functionality. Like registers and fields, groups can
+resolve paths.
+
+[source,cpp]
+----
+struct bus { /* ... */ };
+
+using F = groov::field<"field", std::uint32_t, 0, 0>;
+using R = groov::reg<"reg", std::uint32_t, 0, F>;
+using G = groov::group<"group", bus, R>;
+
+// r has type F
+auto r = groov::resolve(G{}, "reg.field"_f);
+----
+
+=== Combining groups with paths
+
+The combination of a group and one or more paths forms a specification for
+reading or writing.
+
+[source,cpp]
+----
+constexpr auto grp = G{};
+
+// Use operator/ to combine a single path
+auto r_spec = grp / "reg"_r;
+auto w_spec = grp / ("reg"_r = 42);
+
+// alternatively, or for multiple paths:
+auto r_spec = grp("reg1"_r, "reg2"_r);
+auto w_spec = grp("reg1"_r = 42, "reg2"_r = 17);
+----

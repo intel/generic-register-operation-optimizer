@@ -1,0 +1,147 @@
+
+== Paths
+
+A `path` is a way to access a field or register, just like a filesystem path
+accesses an object within a filesystem. It is a compile-time list of strings.
+
+=== Construction and manipulation
+
+Paths can be constructed using UDLs which are in the `groov::literals` namespace.
+
+[source,cpp]
+----
+using namespace groov::literals;
+
+auto p1 = "reg"_r;
+auto p2 = "field"_f;
+----
+
+NOTE: The `_r` and `_f` literals are equivalent; they are intended
+merely to signal "register-like" and "field-like" respectively.
+
+Multi-part paths can be constructed using `.` as a separator. Paths can also be
+manipulated with `operator/`.
+
+[source,cpp]
+----
+auto p1 = "reg"_r;
+auto p2 = "field"_f;
+
+// these are all equivalent
+auto p3 = p1 / p2;
+auto p4 = "reg.field"_f;
+auto p5 = groov::path<"reg", "field">{};
+----
+
+=== Attaching values
+
+Paths may exist as empty objects, carrying information in the type, or they may
+have values attached.
+
+[source,cpp]
+----
+using namespace groov::literals;
+
+// type information only
+auto p1 = "reg.field"_r;
+// with a value attached
+auto p2 = "reg.field"_r = 42;
+----
+
+Generally, type information is used for reading, and attached values are used
+for writing.
+
+NOTE: Paths carry no layout information; a path with a value represents only a
+generic binding. It is not converted into a type with layout until it is
+combined with a group for writing.
+
+=== Resolving
+
+Paths on their own are just empty types. Their real power is as an abstraction
+that affords resolution. Any object may `resolve` a path by providing a
+`resolve` member function:
+
+[source,cpp]
+----
+struct reg {
+  // ...
+  template <pathlike P> constexpr static auto resolve(P p);
+};
+----
+
+Registers and fields can both resolve paths.
+
+[source,cpp]
+----
+using my_field = groov::field<"field", std::uint32_t, 3, 0>;
+using my_reg = groov::reg<"reg", std::uint32_t, 0xa'0000, my_field>;
+
+// f has type my_field
+auto f = groov::resolve(my_reg{}, "reg.field"_f);
+----
+
+In fact, registers and fields can resolve paths that don't start "at the root",
+as long as they are unambiguous.
+
+[source,cpp]
+----
+using my_sub_field_0 = groov::field<"sub_field", std::uint32_t, 1, 0>;
+using my_field_0 = groov::field<"field_0", std::uint32_t, 3, 0, my_sub_field_0>;
+
+using my_sub_field_1 = groov::field<"sub_field", std::uint32_t, 5, 4>;
+using my_field_1 = groov::field<"field_1", std::uint32_t, 7, 4>;
+
+using my_reg = groov::reg<"reg", std::uint32_t, 0xa'0000, my_field_0, my_field_1>;
+
+// "field_1" is unambiguous within "reg": f has type my_field_1
+auto f = groov::resolve(my_reg{}, "field_1"_f);
+
+// "sub_field" is ambiguous within "reg": subf has type groov::ambiguous_t
+auto subf = groov::resolve(my_reg{}, "sub_field"_f);
+----
+
+And of course, paths themselves can resolve paths.
+
+[source,cpp]
+----
+auto p1 = "a.b.c.d"_r;
+
+// p2 is "c.d"
+auto p2 = groov::resolve(p1, "a.b");
+----
+
+Path resolution can fail in a few ways:
+
+- ambiguity, as seen above (result: `groov::ambiguous_t`)
+- the path was too long to resolve  (result: `groov::too_long_t`)
+- plain not found (result: `groov::mismatch_t`)
+
+All of these failure types derive from `groov::invalid_t`. There are utilities
+to deal with resolution in generic code:
+
+
+[source,cpp]
+----
+// free function resolve (calls t.resolve)
+template <typename T, pathlike Path, typename... Args>
+constexpr auto resolve(T const &t, Path const &p, Args const &...args) -> decltype(auto);
+
+// static_assert if resolution fails, indicating how it failed
+template <typename T, pathlike Path, typename... Args>
+constexpr auto checked_resolve(T const &t, Path const &p, Args const &...args) -> decltype(auto);
+
+// what type is returned from resolve?
+template <typename... Ts>
+using resolve_t = decltype(resolve(std::declval<Ts>()...));
+
+// can_resolve is modelled if resolve_t<Args...> is not an invalid_t
+template <typename... Args>
+concept can_resolve = /* ... */;
+
+// type trait equivalents to the concept can_resolve
+template <typename... Args>
+constexpr static bool is_resolvable_v = /* ... */;
+
+template <typename... Args>
+using is_resolvable_t = /* ... */;
+----
