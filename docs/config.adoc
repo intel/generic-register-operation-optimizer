@@ -6,6 +6,15 @@ empty types. A register represents an addressable unit of storage, which
 contains fields located in certain bit ranges. Fields may in turn contain
 (sub)fields.
 
+Registers and fields are quite similar with similar interfaces. They are
+characterized by:
+
+- the name
+- the type
+- the location (in fields, a bit range; in registers, an address)
+- the xref:write_functions.adoc#_write_functions[write function]
+- any contained fields or subfields
+
 [source,cpp]
 ----
 // two subfields located at [1:0] and [3:2]
@@ -13,16 +22,15 @@ using my_sub_field_0 = groov::field<"sub_field_0", std::uint32_t, 1, 0>;
 using my_sub_field_1 = groov::field<"sub_field_1", std::uint32_t, 3, 2>;
 
 // a field located at [3:0] containing the above subfields
-using my_field_0 = groov::field<"field_0", std::uint32_t, 3, 0, my_sub_field_0, my_sub_field_1>;
+using my_field_0 = groov::field<"field_0", std::uint32_t, 3, 0, groov::w::replace,
+                                my_sub_field_0, my_sub_field_1>;
 // a field located at [7:4]
 using my_field_1 = groov::field<"field_1", std::uint32_t, 7, 4>;
 
 // a register (address 0xa'0000) containing the above fields
-using my_reg = groov::reg<"reg", std::uint32_t, 0xa'0000, my_field_0, my_field_1>;
+using my_reg = groov::reg<"reg", std::uint32_t, 0xa'0000, groov::w:replace,
+                           my_field_0, my_field_1>;
 ----
-
-Registers and fields are quite similar with similar interfaces; the only real
-difference is that a register includes an address.
 
 === Types
 

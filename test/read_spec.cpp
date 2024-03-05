@@ -16,7 +16,7 @@ struct bus {
     template <auto> static auto read(auto...) -> async::sender auto {
         return sender{};
     }
-    template <auto> static auto write(auto...) -> async::sender auto {
+    template <auto...> static auto write(auto...) -> async::sender auto {
         return sender{};
     }
 };
@@ -26,9 +26,11 @@ using F1 = groov::field<"field1", std::uint8_t, 4, 1>;
 using F2 = groov::field<"field2", std::uint8_t, 7, 5>;
 
 std::uint32_t data0{};
-using R0 = groov::reg<"reg0", std::uint32_t, &data0, F0, F1, F2>;
+using R0 =
+    groov::reg<"reg0", std::uint32_t, &data0, groov::w::replace, F0, F1, F2>;
 std::uint32_t data1{};
-using R1 = groov::reg<"reg1", std::uint32_t, &data1, F0, F1, F2>;
+using R1 =
+    groov::reg<"reg1", std::uint32_t, &data1, groov::w::replace, F0, F1, F2>;
 
 using G = groov::group<"group", bus, R0, R1>;
 constexpr auto grp = G{};
