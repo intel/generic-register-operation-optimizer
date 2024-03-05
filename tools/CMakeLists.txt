@@ -18,8 +18,8 @@ if(NOT Python3_FOUND)
 endif()
 
 function(add_groov_reg_lib target_name)
-    set(oneValueArgs INPUT_FILE OUTPUT_DIR)
-    set(multiValueArgs PERIPHERALS)
+    set(oneValueArgs INPUT_FILE OUTPUT_DIR BUS)
+    set(multiValueArgs PERIPHERALS INCLUDES)
     cmake_parse_arguments(ARG "" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
     set(python_script "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/regs2groov.py")
@@ -27,13 +27,17 @@ function(add_groov_reg_lib target_name)
     list(TRANSFORM ARG_PERIPHERALS APPEND ".hpp" OUTPUT_VARIABLE
                                                  register_headers)
 
+    if(DEFINED ARG_BUS)
+        set(ARG_BUS "--bus;${ARG_BUS}")
+    endif()
+
     add_custom_command(
         COMMAND_EXPAND_LISTS
         OUTPUT ${register_headers}
         COMMAND
             ${Python3_EXECUTABLE} ${python_script} --input ${ARG_INPUT_FILE}
             --output ${ARG_OUTPUT_DIR} --peripherals ${ARG_PERIPHERALS} --naming
-            lower
+            lower --includes ${ARG_INCLUDES} ${ARG_BUS}
         DEPENDS ${python_script} ${ARG_INPUT_FILE}
         COMMENT
             "Generating groov register header files (${register_headers}) from ${ARG_INPUT_FILE}."

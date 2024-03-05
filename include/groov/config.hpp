@@ -145,10 +145,8 @@ concept registerlike = fieldlike<T> and requires {
 
 template <typename T, typename Reg>
 concept bus_for = requires(typename Reg::type_t data) {
-    { T::template read<typename Reg::type_t{}>(Reg::address) } -> async::sender;
-    {
-        T::template write<typename Reg::type_t{}>(Reg::address, data)
-    } -> async::sender;
+    { T::template read<Reg::mask>(Reg::address) } -> async::sender;
+    { T::template write<Reg::mask>(Reg::address, data) } -> async::sender;
 };
 
 template <stdx::ct_string Name, typename Bus, registerlike... Registers>

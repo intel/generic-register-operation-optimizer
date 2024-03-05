@@ -15,6 +15,7 @@ endfunction()
 
 add_tests(
     config
+    mmio_bus
     path
     read
     read_spec

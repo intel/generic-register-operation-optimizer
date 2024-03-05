@@ -42,7 +42,7 @@ def parse_svd(filename):
     return [mk_group(p, root) for p in root.findall('.//peripheral')]
 
 
-def generate_groups(groups, dest, namespace, name_func, peripherals):
+def generate_groups(groups, dest, namespace, name_func, peripherals, bus_type, includes):
     def indent(lines, len=4):
         if lines:
             prefix = "\n" + (" " * len)
@@ -61,15 +61,15 @@ def generate_groups(groups, dest, namespace, name_func, peripherals):
 
     def generate_field(f):
         integral_type = to_integral_type(f.msb - f.lsb + 1)
-        return f"""groov::field<"{name_func(f.name)}", {integral_type}, {f.msb}, {f.lsb}>"""
+        return f"""groov::field<"{name_func(f.name)}", {integral_type}, {f.msb}u, {f.lsb}u>"""
 
     def generate_register(r):
         fields = indent([generate_field(f) for f in r.fields], len = 12)
-        return f"""groov::reg<"{name_func(r.name)}", std::uint32_t, {hex(r.address)}{fields}>"""
+        return f"""groov::reg<"{name_func(r.name)}", std::uint32_t, {hex(r.address)}u{fields}>"""
     
     def generate_group(g):
         registers = indent([generate_register(r) for r in g.registers], len = 8)
-        return f"""constexpr auto {name_func(g.name)} = \n    groov::group<"{name_func(g.name)}", groov::mmio_bus{registers}>{{}};\n"""
+        return f"""constexpr auto {name_func(g.name)} = \n    groov::group<"{name_func(g.name)}", {bus_type}{registers}>{{}};\n"""
 
     peripherals = [p.lower() for p in peripherals]
 
@@ -79,7 +79,13 @@ def generate_groups(groups, dest, namespace, name_func, peripherals):
 
         g = generate_group(defn)
         with open(f"{dest}/{name_func(defn.name)}.hpp", "w") as f:
-            print("#include <groov.hpp>", file=f)
+            print("#pragma once", file=f)
+
+            for include in includes:
+                print(f"#include <{include}>", file=f)
+
+            print("#include <groov/mmio_bus.hpp>", file=f)
+            print("#include <groov/config.hpp>", file=f)
             print("#include <cstdint>", file=f)
             print("", file=f)
             print(f"namespace {namespace} {{", file=f)
@@ -120,6 +126,17 @@ def parse_cmdline():
         help="How to represent names in the C++ code.",
     )
 
+    parser.add_argument(
+        "--bus",
+        type=str,
+        default="groov::mmio_bus<>",
+        help="Specify a custom bus interface for register groups to use.",
+    )
+
+    parser.add_argument(
+        "--includes", type=str, nargs='*', default=[], help="One or more include files to add."
+    )
+
     return parser.parse_args()
 
 def name_func(choice):
@@ -141,7 +158,7 @@ def name_func(choice):
 def main():
     args = parse_cmdline()
     groups = parse_svd(args.input)
-    generate_groups(groups, args.output, args.namespace, name_func(args.naming), args.peripherals)
+    generate_groups(groups, args.output, args.namespace, name_func(args.naming), args.peripherals, args.bus, args.includes)
 
 if __name__ == "__main__":
     main()
