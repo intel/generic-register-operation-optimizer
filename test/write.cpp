@@ -131,3 +131,29 @@ TEST_CASE("piped read-modify-write", "[write]") {
         | async::sync_wait();
     CHECK(data0 == 0x5au);
 }
+
+namespace {
+template <auto Addr> std::uint32_t data{};
+
+struct ct_address_bus {
+    template <auto Mask, typename T> static auto read(T) -> async::sender auto {
+        return async::just_result_of([=] { return data<T::value>; });
+    }
+
+    template <auto Mask, auto IdMask, auto IdValue, typename T>
+    static auto write(T, auto value) -> async::sender auto {
+        return async::just_result_of(
+            [=] { data<T::value> = (data<T::value> & ~Mask) | value; });
+    }
+};
+} // namespace
+
+TEST_CASE("write a register with integral constant address", "[read]") {
+    using R =
+        groov::reg<"reg", std::uint32_t, std::integral_constant<int, 42>{}>;
+    constexpr auto g = groov::group<"group", ct_address_bus, R>{};
+
+    using namespace groov::literals;
+    sync_write(g("reg"_r = 0xa5a5'a5a5u));
+    CHECK(data<42> == 0xa5a5'a5a5u);
+}
