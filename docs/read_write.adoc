@@ -144,3 +144,7 @@ read or written, so that they can optimize best according to hardware
 capabilities. For `write`, bits set in `Mask` are the bits that must be written,
 and bits set in `IdMask` _may_ be safely written using the corresponding bits in
 `IdValue`.
+
+NOTE: `Mask` and `IdMask` are disjoint sets of bits. Therefore `Idvalue` and
+`value` are also disjoint sets of bits. Bits that are zero in `IdMask` are also
+zero in `IdValue`.

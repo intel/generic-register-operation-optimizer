@@ -79,7 +79,7 @@ For example:
 // the default write function is groov::w::replace
 using my_field_0 = groov::field<"field_0", std::uint32_t, 9, 0>;
 using my_field_1 = groov::field<"field_1", std::uint32_t, 31, 10>;
-using my_reg = groov::reg<"reg", std::uint32_t, 0xa'0000, groov::w:replace,
+using my_reg = groov::reg<"reg", std::uint32_t, 0xa'0000, groov::w::replace,
                            my_field_0, my_field_1>;
 
 // when writing only field_1:
@@ -101,7 +101,7 @@ But if the unwritten field(s) are read-only (or otherwise have an identity):
 ----
 using my_field_0 = groov::field<"field_0", std::uint32_t, 9, 0, groov::w::read_only>;
 using my_field_1 = groov::field<"field_1", std::uint32_t, 31, 10>;
-using my_reg = groov::reg<"reg", std::uint32_t, 0xa'0000, groov::w:replace,
+using my_reg = groov::reg<"reg", std::uint32_t, 0xa'0000, groov::w::replace,
                            my_field_0, my_field_1>;
 
 // when writing only field_1:
