@@ -175,3 +175,31 @@ TEST_CASE("read is pipeable", "[read]") {
     auto r = async::just(grp / "reg0"_r) | groov::read | async::sync_wait();
     CHECK(get<0>(*r)["reg0"_r] == data0);
 }
+
+namespace {
+template <auto Addr> std::uint32_t data{};
+
+struct ct_address_bus {
+    template <auto Mask, typename T> static auto read(T) -> async::sender auto {
+        return async::just_result_of([=] { return data<T::value>; });
+    }
+
+    struct dummy_sender {
+        using is_sender = void;
+    };
+    template <auto...> static auto write(auto...) -> async::sender auto {
+        return dummy_sender{};
+    }
+};
+} // namespace
+
+TEST_CASE("read a register with integral constant address", "[read]") {
+    using R =
+        groov::reg<"reg", std::uint32_t, std::integral_constant<int, 42>{}>;
+    constexpr auto g = groov::group<"group", ct_address_bus, R>{};
+
+    using namespace groov::literals;
+    data<42> = 0xa5a5'a5a5u;
+    auto r = sync_read(g / "reg"_r);
+    CHECK(r["reg"_r] == data<42>);
+}
