@@ -5,32 +5,77 @@
 #include <async/just_result_of.hpp>
 #include <async/then.hpp>
 
+#include <groov/identity.hpp>
+
+#include <boost/mp11/algorithm.hpp>
+#include <boost/mp11/integral.hpp>
+#include <boost/mp11/list.hpp>
+
 #include <bit>
 #include <concepts>
 #include <cstdint>
 
 namespace groov {
 namespace detail {
-template <std::size_t NumBits> struct uint_of_width;
+using namespace boost::mp11;
 
-template <> struct uint_of_width<8> {
-    using type = std::uint8_t;
+template <std::unsigned_integral T, std::size_t ByteOffset>
+struct subword_spec {
+    using subword_t = T;
+    constexpr static auto offset = ByteOffset;
+
+    template <typename M>
+    constexpr static M mask =
+        static_cast<M>(std::numeric_limits<T>::max()) << (ByteOffset * 8);
 };
 
-template <> struct uint_of_width<16> {
-    using type = std::uint16_t;
+using subword_permutations =
+    mp_list<subword_spec<std::uint8_t, 0u>, subword_spec<std::uint8_t, 1u>,
+            subword_spec<std::uint8_t, 2u>, subword_spec<std::uint8_t, 3u>,
+            subword_spec<std::uint8_t, 4u>, subword_spec<std::uint8_t, 5u>,
+            subword_spec<std::uint8_t, 6u>, subword_spec<std::uint8_t, 7u>,
+
+            subword_spec<std::uint16_t, 0u>, subword_spec<std::uint16_t, 1u>,
+            subword_spec<std::uint16_t, 2u>, subword_spec<std::uint16_t, 3u>,
+            subword_spec<std::uint16_t, 4u>, subword_spec<std::uint16_t, 5u>,
+            subword_spec<std::uint16_t, 6u>,
+
+            subword_spec<std::uint32_t, 0u>, subword_spec<std::uint32_t, 1u>,
+            subword_spec<std::uint32_t, 2u>, subword_spec<std::uint32_t, 3u>,
+            subword_spec<std::uint32_t, 4u>,
+
+            subword_spec<std::uint64_t, 0u>>;
+
+template <std::unsigned_integral BaseType> struct fits_within {
+    constexpr static auto base_size = sizeof(BaseType);
+
+    template <typename S>
+    using fn = std::bool_constant<(sizeof(typename S::subword_t) + S::offset) <=
+                                  base_size>;
 };
 
-template <> struct uint_of_width<32> {
-    using type = std::uint32_t;
+template <typename HardwareInterface> struct aligned_for {
+    using iface = HardwareInterface;
+
+    template <typename S>
+    using fn = std::bool_constant<
+        (S::offset % iface::template alignment<typename S::subword_t>) == 0>;
 };
 
-template <> struct uint_of_width<64> {
-    using type = std::uint64_t;
+template <auto Mask, decltype(Mask) IdMask> struct subword_satisfies {
+    using base_type = decltype(Mask);
+
+    template <typename S> constexpr static auto calculate() -> bool {
+        constexpr base_type subword_mask = S::template mask<base_type>;
+        constexpr bool subword_covers_mask = (Mask & subword_mask) == Mask;
+        constexpr bool subword_covered =
+            ((Mask | IdMask) & subword_mask) == subword_mask;
+        return subword_covers_mask and subword_covered;
+    }
+
+    template <typename S> using fn = std::bool_constant<calculate<S>()>;
 };
 
-template <std::size_t NumBits>
-using uint_of_width_t = typename uint_of_width<NumBits>::type;
 } // namespace detail
 
 struct cpp_mem_iface {
@@ -48,6 +93,8 @@ struct cpp_mem_iface {
             return *reinterpret_cast<T volatile *>(addr);
         });
     }
+
+    template <typename T> constexpr static std::size_t alignment = alignof(T);
 };
 
 template <typename HardwareInterface = cpp_mem_iface> struct mmio_bus {
@@ -56,30 +103,42 @@ template <typename HardwareInterface = cpp_mem_iface> struct mmio_bus {
     template <auto Mask, decltype(Mask) IdMask, decltype(Mask) IdValue>
         requires std::unsigned_integral<decltype(Mask)>
     static auto write(auto addr, decltype(Mask) value) -> async::sender auto {
+        static_assert((Mask & IdMask) == decltype(Mask){});
+        static_assert((Mask & IdValue) == decltype(Mask){});
+
         using base_type = decltype(Mask);
 
-        constexpr std::size_t lsb = std::countr_zero(Mask);
-        constexpr std::size_t width = std::countr_one(Mask >> lsb);
-        constexpr bool byte_aligned = (lsb % 8) == 0;
-        constexpr bool contiguous = std::popcount(Mask) == width;
-        constexpr bool pow2_width = std::has_single_bit(width);
-        constexpr bool accessible_width = width & (8u | 16u | 32u | 64u);
-        constexpr bool subword_access_en =
-            byte_aligned && contiguous && pow2_width && accessible_width;
+        using subwords_aligned =
+            detail::mp_copy_if_q<detail::subword_permutations,
+                                 detail::aligned_for<iface>>;
 
-        if constexpr (subword_access_en) {
-            using subword_t = detail::uint_of_width_t<width>;
-            constexpr auto byte_offset = lsb / 8;
-            auto const subword_addr = addr + byte_offset;
-            auto const subword_val = static_cast<subword_t>(value >> lsb);
+        using subwords_aligned_and_fit =
+            detail::mp_copy_if_q<subwords_aligned,
+                                 detail::fits_within<base_type>>;
 
-            return async::just(subword_val) |
+        using subword_candidates =
+            detail::mp_copy_if_q<subwords_aligned_and_fit,
+                                 detail::subword_satisfies<Mask, IdMask>>;
+
+        if constexpr (!detail::mp_empty<subword_candidates>::value) {
+            using subword = detail::mp_first<subword_candidates>;
+            using subword_t = typename subword::subword_t;
+
+            auto const write_val = value | IdValue;
+            auto const subword_addr = addr + subword::offset;
+            auto const subword_write_val =
+                static_cast<subword_t>(write_val >> (subword::offset * 8));
+
+            return async::just(subword_write_val) |
                    iface::template store<subword_t>(subword_addr);
 
         } else {
             return iface::template load<base_type>(addr) |
                    async::then([=](base_type old) {
-                       return (value & Mask) | (old & ~Mask);
+                       auto const bits_to_update = value & Mask;
+                       auto const bits_to_writeback = old & ~Mask & ~IdMask;
+
+                       return bits_to_update | bits_to_writeback | IdValue;
                    }) |
                    iface::template store<base_type>(addr);
         }
