@@ -23,7 +23,7 @@ constexpr auto mask_bits() -> T {
 }
 
 template <std::unsigned_integral T, std::size_t Msb, std::size_t Lsb>
-constexpr auto compute_mask() {
+constexpr auto compute_mask() -> T {
     return mask_bits<T, Msb + 1>() - mask_bits<T, Lsb>();
 }
 } // namespace detail
@@ -77,10 +77,6 @@ struct any {
         return {};
     }
 };
-
-static_assert(identity_spec<zero>);
-static_assert(identity_spec<one>);
-static_assert(identity_spec<any>);
 } // namespace id
 
 template <typename T>
@@ -93,8 +89,17 @@ struct replace {
 struct read_only {
     using id_spec = id::any;
 };
+struct one_to_set {
+    using id_spec = id::zero;
+};
+struct one_to_clear {
+    using id_spec = id::zero;
+};
+struct zero_to_set {
+    using id_spec = id::one;
+};
+struct zero_to_clear {
+    using id_spec = id::one;
+};
 } // namespace w
-
-static_assert(write_function<w::replace>);
-static_assert(write_function<w::read_only>);
 } // namespace groov
