@@ -24,3 +24,13 @@ add_tests(
     write
     write_spec)
 add_subdirectory(fail)
+
+add_unit_test(
+    mmio_bus_pbt_test
+    PYTEST
+    FILES
+    mmio_bus_pbt.py
+    INCLUDE_FILES
+    mmio_bus_pbt.hpp
+    LIBRARIES
+    groov)
