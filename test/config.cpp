@@ -160,23 +160,3 @@ TEST_CASE("all fields inside a register with fields and subfields",
         std::is_same_v<groov::detail::all_fields_t<boost::mp11::mp_list<R>>,
                        boost::mp11::mp_list<SubF00, SubF01, F1>>);
 }
-
-TEST_CASE("compute mask (whole register)", "[config]") {
-    constexpr auto m = groov::detail::compute_mask<std::uint32_t, 31, 0>();
-    static_assert(m == std::numeric_limits<std::uint32_t>::max());
-}
-
-TEST_CASE("mask bits (field at top of register)", "[config]") {
-    constexpr auto m = groov::detail::compute_mask<std::uint32_t, 31, 31>();
-    static_assert(m == 0x8000'0000u);
-}
-
-TEST_CASE("mask bits (field in middle of register)", "[config]") {
-    constexpr auto m = groov::detail::compute_mask<std::uint32_t, 16, 15>();
-    static_assert(m == 0x0001'8000u);
-}
-
-TEST_CASE("mask bits (field at bottom of register)", "[config]") {
-    constexpr auto m = groov::detail::compute_mask<std::uint32_t, 0, 0>();
-    static_assert(m == 0x0000'0001u);
-}

@@ -28,30 +28,6 @@ TEST_CASE("any id spec returns a zeroed identity", "[identity]") {
     static_assert(i == 0);
 }
 
-TEST_CASE("compute a mask (whole range)", "[identity]") {
-    constexpr auto m = groov::detail::compute_mask<std::uint64_t, 63, 0>();
-    static_assert(m == std::numeric_limits<std::uint64_t>::max());
-    static_assert(std::is_same_v<decltype(m), std::uint64_t const>);
-}
-
-TEST_CASE("compute a mask (low bits)", "[identity]") {
-    constexpr auto m = groov::detail::compute_mask<std::uint8_t, 1, 0>();
-    static_assert(m == 0b0000'0011);
-    static_assert(std::is_same_v<decltype(m), std::uint8_t const>);
-}
-
-TEST_CASE("compute a mask (mid bits)", "[identity]") {
-    constexpr auto m = groov::detail::compute_mask<std::uint8_t, 4, 3>();
-    static_assert(m == 0b0001'1000);
-    static_assert(std::is_same_v<decltype(m), std::uint8_t const>);
-}
-
-TEST_CASE("compute a mask (high bits)", "[identity]") {
-    constexpr auto m = groov::detail::compute_mask<std::uint8_t, 7, 6>();
-    static_assert(m == 0b01100'0000);
-    static_assert(std::is_same_v<decltype(m), std::uint8_t const>);
-}
-
 TEST_CASE("replace write function has no identity", "[identity]") {
     static_assert(groov::write_function<groov::w::replace>);
     static_assert(std::is_same_v<groov::w::replace::id_spec, groov::id::none>);

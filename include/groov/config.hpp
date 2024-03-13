@@ -6,6 +6,7 @@
 #include <groov/make_spec.hpp>
 #include <groov/resolve.hpp>
 
+#include <stdx/bit.hpp>
 #include <stdx/ct_string.hpp>
 #include <stdx/type_traits.hpp>
 
@@ -103,7 +104,7 @@ struct field : named_container<Name, SubFields...> {
         detail::compute_identity<id_spec_t, RegType, Msb, Lsb>();
 
     template <std::unsigned_integral RegType>
-    constexpr static auto mask = detail::compute_mask<RegType, Msb, Lsb>();
+    constexpr static auto mask = stdx::bit_mask<RegType, Msb, Lsb>();
 
     template <std::unsigned_integral RegType>
     constexpr static auto identity_mask =
