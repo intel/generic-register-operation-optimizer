@@ -111,7 +111,12 @@ jobs:
       - name: Install build tools
         run: |
           ${{ matrix.install }}
-          sudo apt install -y ninja-build
+          sudo apt install -y python3-pip ninja-build
+
+      - name: Install python test tools
+        run: |
+          sudo pip3 install --upgrade pip
+          sudo pip3 install pytest pytest-forked hypothesis cppyy
 
       - name: Configure CMake
         env:
@@ -124,7 +129,7 @@ jobs:
 
       - name: Test
         working-directory: ${{github.workspace}}/build
-        run: ctest -j $(nproc) -C ${{matrix.build_type}}
+        run: ctest --output-on-failure -j $(nproc) -C ${{matrix.build_type}}
 
   quality_checks_pass:
     runs-on: ${{ github.repository_owner == 'intel' && 'intel-' || '' }}ubuntu-22.04
@@ -185,7 +190,7 @@ jobs:
         run: cmake -B ${{github.workspace}}/build -DCMAKE_CXX_STANDARD=${{env.DEFAULT_CXX_STANDARD}}
 
       - name: Build Unit Tests
-        run: cmake --build ${{github.workspace}}/build -t unit_tests
+        run: cmake --build ${{github.workspace}}/build -t cpp_tests
 
   valgrind:
     runs-on: ${{ github.repository_owner == 'intel' && 'intel-' || '' }}ubuntu-22.04
@@ -207,7 +212,7 @@ jobs:
       - name: Test
         working-directory: ${{github.workspace}}/build
         run: |
-          ctest -j $(nproc) -E EXPECT_FAIL -T memcheck
+          ctest --output-on-failure -j $(nproc) -E "EXPECT_FAIL|PYTHON" -T memcheck
 
           LOGFILE=$(ls ./Testing/Temporary/LastDynamicAnalysis_*.log)
           FAILSIZE=$(du -c ./Testing/Temporary/MemoryChecker.* | tail -1 | cut -f1)
