@@ -36,8 +36,8 @@ struct mismatch_t : invalid_t {};
 struct ambiguous_t : invalid_t {};
 
 template <typename T, pathlike Path, typename... Args>
-constexpr auto resolve(T const &t, Path const &p, Args const &...args)
-    -> decltype(auto) {
+constexpr auto resolve(T const &t, Path const &p,
+                       Args const &...args) -> decltype(auto) {
     return t.resolve(p, args...);
 }
 
