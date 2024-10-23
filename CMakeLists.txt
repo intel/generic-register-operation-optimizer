@@ -14,8 +14,9 @@ else()
 endif()
 
 add_versioned_package("gh:boostorg/mp11#boost-1.83.0")
-add_versioned_package("gh:intel/cpp-std-extensions#f67b432")
-add_versioned_package("gh:intel/cpp-baremetal-senders-and-receivers#eb4239f")
+add_versioned_package("gh:intel/cpp-baremetal-concurrency#7c5b26c")
+add_versioned_package("gh:intel/cpp-std-extensions#5530b5d")
+add_versioned_package("gh:intel/cpp-baremetal-senders-and-receivers#73d95bc")
 add_versioned_package("gh:intel/safe-arithmetic#9ea549a")
 
 find_package(Python3 COMPONENTS Interpreter)
@@ -29,6 +30,11 @@ target_include_directories(groov INTERFACE include)
 target_compile_features(groov INTERFACE cxx_std_${CMAKE_CXX_STANDARD})
 target_link_libraries_system(groov INTERFACE async boost_mp11 safe_arithmetic
                              stdx)
+target_compile_options(
+    groov
+    INTERFACE
+        $<$<AND:$<CXX_COMPILER_ID:Clang>,$<VERSION_LESS_EQUAL:${CMAKE_CXX_COMPILER_VERSION},14>>:-Wno-gnu-string-literal-operator-template>
+)
 
 if(PROJECT_IS_TOP_LEVEL)
     add_docs(docs)
