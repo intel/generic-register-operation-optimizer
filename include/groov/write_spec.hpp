@@ -32,7 +32,7 @@ template <typename R, typename F> struct field_proxy {
     // NOLINTNEXTLINE(google-explicit-constructor)
     constexpr operator type_t() const { return F::extract(r.value); }
 
-    // NOLINTNEXTLINE(cppcoreguidelines-c-copy-assignment-signature)
+    // NOLINTNEXTLINE(misc-unconventional-assign-operator)
     constexpr auto operator=(type_t v) const && -> void {
         F::insert(r.value, v);
     }

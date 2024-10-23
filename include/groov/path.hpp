@@ -20,7 +20,7 @@ template <stdx::ct_string... Parts> struct path {
     }
 
     template <typename T>
-    // NOLINTNEXTLINE(cppcoreguidelines-c-copy-assignment-signature)
+    // NOLINTNEXTLINE(misc-unconventional-assign-operator)
     constexpr auto operator=(T const &value) {
         return (*this)(value);
     }
@@ -75,6 +75,7 @@ CONSTEVAL auto make_path() -> pathlike auto {
 }
 } // namespace detail
 
+#if __clang__ && __clang_major__ <= 14
 template <class T, T... chars> CONSTEVAL auto operator""_g() -> pathlike auto {
     constexpr auto s = stdx::ct_string<sizeof...(chars) + 1U>{{chars..., 0}};
     return detail::make_path<s>();
@@ -89,5 +90,19 @@ template <class T, T... chars> CONSTEVAL auto operator""_f() -> pathlike auto {
     constexpr auto s = stdx::ct_string<sizeof...(chars) + 1U>{{chars..., 0}};
     return detail::make_path<s>();
 }
+#else
+template <stdx::ct_string S> CONSTEVAL auto operator""_g() -> pathlike auto {
+    return detail::make_path<S>();
+}
+
+template <stdx::ct_string S> CONSTEVAL auto operator""_r() -> pathlike auto {
+    return detail::make_path<S>();
+}
+
+template <stdx::ct_string S> CONSTEVAL auto operator""_f() -> pathlike auto {
+    return detail::make_path<S>();
+}
+#endif
+
 } // namespace literals
 } // namespace groov
