@@ -41,5 +41,3 @@ if(PROJECT_IS_TOP_LEVEL)
     add_subdirectory(test)
     clang_tidy_interface(groov)
 endif()
-
-add_subdirectory(tools)
