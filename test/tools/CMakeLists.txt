@@ -1,0 +1,27 @@
+include(${CMAKE_SOURCE_DIR}/cmake/groov.cmake)
+
+generate_register_group(
+    test_regs
+    INPUT
+    test.regs
+    PARSER_MODULES
+    ${CMAKE_SOURCE_DIR}/test/tools/test_regs.py
+    PARSE_FN
+    test_parse
+    LIBRARIES
+    stdx
+    INCLUDES
+    "stdx/tuple.hpp"
+    "stdx/compiler.hpp"
+    BUS
+    "groov::mmio_bus<>"
+    NAMESPACE
+    "test"
+    GROUP
+    "test_regs"
+    REGISTERS
+    larry
+    curly
+    moe
+    OUTPUT
+    "test_regs.hpp")

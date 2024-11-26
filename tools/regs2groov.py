@@ -1,48 +1,31 @@
-import xml.etree.ElementTree as et
-import re
-from collections import namedtuple
 import argparse
+import groov
 
 
-Group = namedtuple('Group', ['name', 'registers'])
-Register = namedtuple('Register', ['name', 'address', 'fields'])
-Field = namedtuple('Field', ['name', 'access', 'msb', 'lsb'])
+def select_name_func(choice):
+    def to_lower(s):
+        return s.lower()
 
-def parse_svd(filename):
-    def mk_field(x):
-        (msb, lsb) = re.search(r"\[(\d+):(\d+)\]", x.find('bitRange').text).groups()
+    def to_upper(s):
+        return s.upper()
 
-        return Field(
-            name = x.find('name').text,
-            access = x.find('access').text,
-            msb = int(msb),
-            lsb = int(lsb)
-        )
-
-    def mk_register(x, base):
-        return Register(
-            name = x.find('name').text,
-            address = base + int(x.find('addressOffset').text, 16),
-            fields = [mk_field(f) for f in x.findall('.//field')]
-        )
-
-    def mk_group(x, root):
-        base_addr = int(x.find('baseAddress').text, 16)
-        name = x.find('name').text
-
-        if ("derivedFrom" in x.attrib):
-            x = root.find(f""".//peripheral[name='{x.attrib["derivedFrom"]}']""")
-            
-        return Group(
-            name = name,
-            registers = [mk_register(r, base_addr) for r in x.findall('.//register')]
-        )
+    def keep(s):
+        return s
     
-    root = et.parse(filename).getroot()
-    return [mk_group(p, root) for p in root.findall('.//peripheral')]
+    return dict(
+        keep = keep,
+        lower = to_lower,
+        upper = to_upper
+    )[choice]
 
 
-def generate_groups(groups, dest, namespace, name_func, peripherals, bus_type, includes):
+# def generate_groups(groups, ):
+def generate_groups(groups, config):
+    namespace = config.namespace
+    name_func = select_name_func(config.naming)
+    bus_type = config.bus
+    includes = config.includes
+
     def indent(lines, len=4):
         if lines:
             prefix = "\n" + (" " * len)
@@ -61,7 +44,7 @@ def generate_groups(groups, dest, namespace, name_func, peripherals, bus_type, i
 
     def generate_field(f):
         integral_type = to_integral_type(f.msb - f.lsb + 1)
-        return f"""groov::field<"{name_func(f.name)}", {integral_type}, {f.msb}u, {f.lsb}u>"""
+        return f"""groov::field<"{name_func(f.name)}", {integral_type}, {f.msb}u, {f.lsb}u, {f.access}>"""
 
     def generate_register(r):
         fields = indent([generate_field(f) for f in r.fields], len = 12)
@@ -71,53 +54,59 @@ def generate_groups(groups, dest, namespace, name_func, peripherals, bus_type, i
         registers = indent([generate_register(r) for r in g.registers], len = 8)
         return f"""constexpr auto {name_func(g.name)} = \n    groov::group<"{name_func(g.name)}", {bus_type}{registers}>{{}};\n"""
 
-    peripherals = [p.lower() for p in peripherals]
+    with open(f"{config.output}", "w") as f:
+        print("#pragma once", file=f)
+        for include in includes:
+            print(f"#include <{include}>", file=f)
 
-    for defn in groups:
-        if peripherals and (defn.name.lower() not in peripherals):
-            continue 
+        print("#include <groov/mmio_bus.hpp>", file=f)
+        print("#include <groov/config.hpp>", file=f)
+        print("#include <cstdint>", file=f)
+        print("", file=f)
 
-        g = generate_group(defn)
-        with open(f"{dest}/{name_func(defn.name)}.hpp", "w") as f:
-            print("#pragma once", file=f)
+        g = groups[config.group]
+        print(f"namespace {namespace} {{", file=f)
+        print(generate_group(g), end="", file=f)
+        print(f"}} // namespace {namespace}", file=f)
 
-            for include in includes:
-                print(f"#include <{include}>", file=f)
 
-            print("#include <groov/mmio_bus.hpp>", file=f)
-            print("#include <groov/config.hpp>", file=f)
-            print("#include <cstdint>", file=f)
-            print("", file=f)
-            print(f"namespace {namespace} {{", file=f)
-            print(g, end="", file=f)
-            print(f"}} // namespace {namespace}", file=f)
+def generate(config):
+    for f in config.parser_modules:
+        exec(open(f).read())
+    parse_fn = eval(config.parse_fn)
+    groups = parse_fn(config.input)
+    generate_groups(groups, config)
+
+# Below this line is just for use as a script
 
 def parse_cmdline():
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--bus",
+        type=str,
+        default="groov::mmio_bus<>",
+        help="Specify a custom bus interface for register groups to use.",
+    )
+    parser.add_argument(
+        "--group", type=str, required=True, help="Name of the register group to generate."
+    )
     parser.add_argument(
         "--input",
         type=str,
         required=True,
         help=(
-            "Full path to SVD file with register definitions."
+            "Full path to file with register definitions."
         ),
     )
-
     parser.add_argument(
-        "--peripherals", type=str, nargs='+', help="One or more peripherals to generate a header for."
+        "--includes", type=str, nargs='*', default=[], help="One or more include files to add."
     )
-
-    parser.add_argument(
-        "--output", type=str, help="Output directory for generated C++ code."
-    )
-
     parser.add_argument(
         "--namespace",
         type=str,
         default="regs",
         help="C++ namespace to place all register groups in.",
     )
-
     parser.add_argument(
         "--naming",
         type=str,
@@ -125,40 +114,25 @@ def parse_cmdline():
         choices=['keep', 'lower', 'upper'],
         help="How to represent names in the C++ code.",
     )
-
     parser.add_argument(
-        "--bus",
-        type=str,
-        default="groov::mmio_bus<>",
-        help="Specify a custom bus interface for register groups to use.",
+        "--output", type=str, required=True, help="Output file for generated C++ code."
     )
-
     parser.add_argument(
-        "--includes", type=str, nargs='*', default=[], help="One or more include files to add."
+        "--parse-fn", type=str, help="Name of the parse function to use."
+    )
+    parser.add_argument(
+        "--parser-modules", type=str, nargs='*', default=[], help="Path(s) to Python module(s) with parse function(s): parse_fn_name(filename: str) -> [Group]."
+    )
+    parser.add_argument(
+        "--registers", type=str, nargs='+', default=[], help="Registers to generate."
     )
 
     return parser.parse_args()
 
-def name_func(choice):
-    def to_lower(s):
-        return s.lower()
-
-    def to_upper(s):
-        return s.upper()
-
-    def keep(s):
-        return s
-    
-    return dict(
-        keep = keep,
-        lower = to_lower,
-        upper = to_upper
-    )[choice]
 
 def main():
     args = parse_cmdline()
-    groups = parse_svd(args.input)
-    generate_groups(groups, args.output, args.namespace, name_func(args.naming), args.peripherals, args.bus, args.includes)
+    generate(args)
 
 if __name__ == "__main__":
     main()

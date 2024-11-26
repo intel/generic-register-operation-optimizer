@@ -24,3 +24,5 @@ add_tests(
     write
     write_spec)
 add_subdirectory(fail)
+
+add_subdirectory(tools)
