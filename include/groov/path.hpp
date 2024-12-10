@@ -5,6 +5,7 @@
 
 #include <stdx/compiler.hpp>
 #include <stdx/ct_string.hpp>
+#include <stdx/tuple.hpp>
 #include <stdx/type_traits.hpp>
 
 #include <boost/mp11/algorithm.hpp>
@@ -49,6 +50,12 @@ template <stdx::ct_string... Parts> struct path {
     }
 
     constexpr static auto empty = std::bool_constant<sizeof...(Parts) == 0>{};
+
+    constexpr static auto to_string() {
+        using namespace stdx::literals;
+        return stdx::tuple{Parts...}.join(
+            ""_cts, [](auto lhs, auto rhs) { return lhs + "."_cts + rhs; });
+    }
 
   private:
     friend constexpr auto operator==(path, path) -> bool = default;

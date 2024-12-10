@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-// EXPECT: Unresolvable path passed to group
+// EXPECT: Unresolvable path\(s\) \[reg0.field1\] passed to group \[group\]
 
 namespace {
 struct bus {
