@@ -38,6 +38,12 @@ it means a read-modify-write can be avoided.
 
 ## Quickstart
 
+### Include groov
+
+```c++
+#include <groov/groov.hpp>
+```
+
 ### Read a Register
 
 ```c++
