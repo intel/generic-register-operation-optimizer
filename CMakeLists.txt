@@ -15,7 +15,7 @@ endif()
 
 add_versioned_package("gh:boostorg/mp11#boost-1.83.0")
 add_versioned_package("gh:intel/cpp-baremetal-concurrency#7c5b26c")
-add_versioned_package("gh:intel/cpp-std-extensions#5530b5d")
+add_versioned_package("gh:intel/cpp-std-extensions#57c87c2")
 add_versioned_package("gh:intel/cpp-baremetal-senders-and-receivers#73d95bc")
 add_versioned_package("gh:intel/safe-arithmetic#9ea549a")
 
