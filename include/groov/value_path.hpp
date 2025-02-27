@@ -70,8 +70,8 @@ template <pathlike Path, typename Value> struct value_path : Path {
     }
 
   private:
-    friend constexpr auto operator==(value_path const &,
-                                     value_path const &) -> bool = default;
+    friend constexpr auto operator==(value_path const &, value_path const &)
+        -> bool = default;
 
     template <pathlike P>
         requires(not valued<P>)
