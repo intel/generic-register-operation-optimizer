@@ -1,13 +1,13 @@
-#include <async/just.hpp>
-#include <async/just_result_of.hpp>
-#include <async/sync_wait.hpp>
-#include <async/then.hpp>
-
 #include <groov/path.hpp>
 #include <groov/read.hpp>
 #include <groov/value_path.hpp>
 #include <groov/write.hpp>
 #include <groov/write_spec.hpp>
+
+#include <async/just.hpp>
+#include <async/just_result_of.hpp>
+#include <async/sync_wait.hpp>
+#include <async/then.hpp>
 
 #include <catch2/catch_test_macros.hpp>
 
