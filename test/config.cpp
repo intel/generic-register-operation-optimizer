@@ -1,8 +1,8 @@
-#include <async/concepts.hpp>
-
 #include <groov/config.hpp>
 #include <groov/path.hpp>
 #include <groov/resolve.hpp>
+
+#include <async/concepts.hpp>
 
 #include <catch2/catch_test_macros.hpp>
 

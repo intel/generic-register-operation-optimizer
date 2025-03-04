@@ -1,10 +1,10 @@
+#include <groov/mmio_bus.hpp>
+#include <groov/path.hpp>
+
 #include <async/just.hpp>
 #include <async/just_result_of.hpp>
 #include <async/sync_wait.hpp>
 #include <async/then.hpp>
-
-#include <groov/mmio_bus.hpp>
-#include <groov/path.hpp>
 
 #include <catch2/catch_test_macros.hpp>
 

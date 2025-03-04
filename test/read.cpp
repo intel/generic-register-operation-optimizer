@@ -1,11 +1,11 @@
+#include <groov/path.hpp>
+#include <groov/read.hpp>
+#include <groov/read_spec.hpp>
+
 #include <async/concepts.hpp>
 #include <async/just.hpp>
 #include <async/just_result_of.hpp>
 #include <async/sync_wait.hpp>
-
-#include <groov/path.hpp>
-#include <groov/read.hpp>
-#include <groov/read_spec.hpp>
 
 #include <catch2/catch_test_macros.hpp>
 

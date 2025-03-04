@@ -1,10 +1,10 @@
 #pragma once
 
-#include <async/concepts.hpp>
-
 #include <groov/identity.hpp>
 #include <groov/make_spec.hpp>
 #include <groov/resolve.hpp>
+
+#include <async/concepts.hpp>
 
 #include <stdx/bit.hpp>
 #include <stdx/ct_string.hpp>

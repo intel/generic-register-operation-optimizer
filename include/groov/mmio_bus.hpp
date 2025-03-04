@@ -1,11 +1,11 @@
 #pragma once
 
+#include <groov/identity.hpp>
+
 #include <async/concepts.hpp>
 #include <async/just.hpp>
 #include <async/just_result_of.hpp>
 #include <async/then.hpp>
-
-#include <groov/identity.hpp>
 
 #include <boost/mp11/algorithm.hpp>
 #include <boost/mp11/integral.hpp>

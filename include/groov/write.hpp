@@ -1,10 +1,10 @@
 #pragma once
 
+#include <groov/config.hpp>
+
 #include <async/concepts.hpp>
 #include <async/let_value.hpp>
 #include <async/when_all.hpp>
-
-#include <groov/config.hpp>
 
 #include <stdx/tuple_algorithms.hpp>
 
