@@ -1,5 +1,7 @@
 #include <groov/path.hpp>
 
+#include <stdx/ct_string.hpp>
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <type_traits>
@@ -94,4 +96,11 @@ TEST_CASE("path is pathlike", "[path]") {
     using namespace groov::literals;
     static_assert(groov::pathlike<decltype("reg"_r / "field"_f)>);
     static_assert(not groov::valued_pathlike<decltype("reg"_r / "field"_f)>);
+}
+
+TEST_CASE("convert to string", "[path]") {
+    using namespace stdx::literals;
+    using namespace groov::literals;
+    static_assert(("reg"_r / "field"_f).to_string() == "reg.field"_cts);
+    static_assert(groov::path<>::to_string() == ""_cts);
 }
