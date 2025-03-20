@@ -26,7 +26,6 @@ if(NOT DEFINED CMAKE_CXX_STANDARD)
 endif()
 
 add_library(groov INTERFACE)
-target_include_directories(groov INTERFACE include)
 target_compile_features(groov INTERFACE cxx_std_${CMAKE_CXX_STANDARD})
 target_link_libraries_system(groov INTERFACE async boost_mp11 safe_arithmetic
                              stdx)
@@ -35,6 +34,30 @@ target_compile_options(
     INTERFACE
         $<$<AND:$<CXX_COMPILER_ID:Clang>,$<VERSION_LESS_EQUAL:${CMAKE_CXX_COMPILER_VERSION},14>>:-Wno-gnu-string-literal-operator-template>
 )
+
+target_sources(
+    groov
+    INTERFACE FILE_SET
+              groov
+              TYPE
+              HEADERS
+              BASE_DIRS
+              include
+              FILES
+              include/groov/attach_value.hpp
+              include/groov/boost_extra.hpp
+              include/groov/config.hpp
+              include/groov/groov.hpp
+              include/groov/identity.hpp
+              include/groov/make_spec.hpp
+              include/groov/mmio_bus.hpp
+              include/groov/path.hpp
+              include/groov/read.hpp
+              include/groov/read_spec.hpp
+              include/groov/resolve.hpp
+              include/groov/value_path.hpp
+              include/groov/write.hpp
+              include/groov/write_spec.hpp)
 
 if(PROJECT_IS_TOP_LEVEL)
     add_docs(docs)

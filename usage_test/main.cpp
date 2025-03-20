@@ -1,9 +1,9 @@
+#include <groov/groov.hpp>
+
 #include <async/concepts.hpp>
 #include <async/just.hpp>
 #include <async/just_result_of.hpp>
 #include <async/sync_wait.hpp>
-
-#include <groov/groov.hpp>
 
 #include <cassert>
 #include <cstdint>
