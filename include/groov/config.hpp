@@ -8,6 +8,8 @@
 
 #include <stdx/bit.hpp>
 #include <stdx/ct_string.hpp>
+#include <stdx/static_assert.hpp>
+#include <stdx/tuple.hpp>
 #include <stdx/type_traits.hpp>
 
 #include <boost/mp11/algorithm.hpp>
@@ -190,13 +192,31 @@ template <typename L> struct any_resolves_q {
     template <pathlike P> using fn = boost::mp11::mp_any_of_q<L, resolves_q<P>>;
 };
 
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define GROOV_STATIC_ASSERT(cond, fmt, ...)                                    \
+    STATIC_ASSERT(                                                             \
+        cond,                                                                  \
+        "  (/o.o)/ _|_|_  . o O (HEY, LOOK HERE!!!) ~~ GROOV ERROR: " fmt      \
+            __VA_OPT__(, ) __VA_ARGS__)
+
+template <typename... Paths>
+constexpr static auto path_names(boost::mp11::mp_list<Paths...>) {
+    using namespace stdx::literals;
+    return stdx::tuple{Paths::to_string()...}.join(
+        ""_cts, [](auto lhs, auto rhs) { return lhs + ", "_cts + rhs; });
+}
+
 template <typename G, typename L> constexpr auto check_valid_config() -> void {
     static_assert(boost::mp11::mp_is_set<L>::value,
                   "Duplicate path passed to group");
-    static_assert(
-        boost::mp11::mp_all_of_q<L,
-                                 any_resolves_q<typename G::children_t>>::value,
-        "Unresolvable path passed to group");
+
+    using bad_paths =
+        boost::mp11::mp_remove_if_q<L, any_resolves_q<typename G::children_t>>;
+
+    GROOV_STATIC_ASSERT(boost::mp11::mp_empty<bad_paths>::value,
+                        "Unresolvable path(s) [{}] passed to group [{}]",
+                        path_names(bad_paths{}), CX_VALUE(G::name));
+
     stdx::template_for_each<L>([]<typename P>() {
         using rest = boost::mp11::mp_remove<L, P>;
         static_assert(boost::mp11::mp_none_of_q<rest, resolves_q<P>>::value,
