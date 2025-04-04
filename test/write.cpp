@@ -113,22 +113,24 @@ TEST_CASE("write mask is passed to bus", "[write]") {
 
 TEST_CASE("write is pipeable", "[write]") {
     using namespace groov::literals;
-    async::just(grp("reg0"_r = 0xa5a5'a5a5u)) | groov::write |
-        async::sync_wait();
+    auto r = async::just(grp("reg0"_r = 0xa5a5'a5a5u)) | groov::write |
+             async::sync_wait();
+    CHECK(r);
     CHECK(data0 == 0xa5a5'a5a5u);
 }
 
 TEST_CASE("piped read-modify-write", "[write]") {
     using namespace groov::literals;
     data0 = 0xa5u;
-    async::just(grp / "reg0"_r) //
-        | groov::read           //
-        | async::then([](auto spec) {
-              spec["reg0"_r] ^= 0xff;
-              return spec;
-          })           //
-        | groov::write //
-        | async::sync_wait();
+    auto r = async::just(grp / "reg0"_r) //
+             | groov::read               //
+             | async::then([](auto spec) {
+                   spec["reg0"_r] ^= 0xff;
+                   return spec;
+               })           //
+             | groov::write //
+             | async::sync_wait();
+    CHECK(r);
     CHECK(data0 == 0x5au);
 }
 
