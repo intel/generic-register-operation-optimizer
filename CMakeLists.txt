@@ -17,7 +17,6 @@ add_versioned_package("gh:boostorg/mp11#boost-1.83.0")
 add_versioned_package("gh:intel/cpp-baremetal-concurrency#0ddce52")
 add_versioned_package("gh:intel/cpp-std-extensions#7e1cbc7")
 add_versioned_package("gh:intel/cpp-baremetal-senders-and-receivers#22c8006")
-add_versioned_package("gh:intel/safe-arithmetic#9ea549a")
 
 find_package(Python3 COMPONENTS Interpreter)
 
@@ -27,8 +26,7 @@ endif()
 
 add_library(groov INTERFACE)
 target_compile_features(groov INTERFACE cxx_std_${CMAKE_CXX_STANDARD})
-target_link_libraries_system(groov INTERFACE async boost_mp11 safe_arithmetic
-                             stdx)
+target_link_libraries_system(groov INTERFACE async boost_mp11 stdx)
 target_compile_options(
     groov
     INTERFACE

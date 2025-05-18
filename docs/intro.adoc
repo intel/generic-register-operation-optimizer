@@ -24,4 +24,3 @@ The library dependencies are:
 - https://github.com/boostorg/mp11[Boost.MP11]
 - https://github.com/intel/cpp-std-extensions[C++ std extensions (`stdx`)]
 - https://github.com/intel/cpp-baremetal-senders-and-receivers[Baremetal Senders & Receivers]
-- https://github.com/intel/safe-arithmetic[Safe Arithmetic]
