@@ -11,12 +11,8 @@ def select_name_func(choice):
 
     def keep(s):
         return s
-    
-    return dict(
-        keep = keep,
-        lower = to_lower,
-        upper = to_upper
-    )[choice]
+
+    return dict(keep=keep, lower=to_lower, upper=to_upper)[choice]
 
 
 # def generate_groups(groups, ):
@@ -30,14 +26,14 @@ def generate_groups(groups, config):
         if lines:
             prefix = "\n" + (" " * len)
             infix = "," + prefix
-            return infix + infix.join(lines) 
+            return infix + infix.join(lines)
         else:
             return ""
 
     def to_integral_type(bit_width):
         if bit_width == 1:
             return "bool"
-        
+
         for i in [8, 16, 32, 64]:
             if bit_width <= i:
                 return f"std::uint_fast{i}_t"
@@ -47,11 +43,11 @@ def generate_groups(groups, config):
         return f"""groov::field<"{name_func(f.name)}", {integral_type}, {f.msb}u, {f.lsb}u, {f.access}>"""
 
     def generate_register(r):
-        fields = indent([generate_field(f) for f in r.fields], len = 12)
+        fields = indent([generate_field(f) for f in r.fields], len=12)
         return f"""groov::reg<"{name_func(r.name)}", std::uint32_t, {hex(r.address)}u{fields}>"""
-    
+
     def generate_group(g):
-        registers = indent([generate_register(r) for r in g.registers], len = 8)
+        registers = indent([generate_register(r) for r in g.registers], len=8)
         return f"""constexpr auto {name_func(g.name)} = \n    groov::group<"{name_func(g.name)}", {bus_type}{registers}>{{}};\n"""
 
     with open(f"{config.output}", "w") as f:
@@ -77,7 +73,9 @@ def generate(config):
     groups = parse_fn(config.input)
     generate_groups(groups, config)
 
+
 # Below this line is just for use as a script
+
 
 def parse_cmdline():
     parser = argparse.ArgumentParser()
@@ -88,18 +86,23 @@ def parse_cmdline():
         help="Specify a custom bus interface for register groups to use.",
     )
     parser.add_argument(
-        "--group", type=str, required=True, help="Name of the register group to generate."
+        "--group",
+        type=str,
+        required=True,
+        help="Name of the register group to generate.",
     )
     parser.add_argument(
         "--input",
         type=str,
         required=True,
-        help=(
-            "Full path to file with register definitions."
-        ),
+        help=("Full path to file with register definitions."),
     )
     parser.add_argument(
-        "--includes", type=str, nargs='*', default=[], help="One or more include files to add."
+        "--includes",
+        type=str,
+        nargs="*",
+        default=[],
+        help="One or more include files to add.",
     )
     parser.add_argument(
         "--namespace",
@@ -111,7 +114,7 @@ def parse_cmdline():
         "--naming",
         type=str,
         default="keep",
-        choices=['keep', 'lower', 'upper'],
+        choices=["keep", "lower", "upper"],
         help="How to represent names in the C++ code.",
     )
     parser.add_argument(
@@ -121,10 +124,14 @@ def parse_cmdline():
         "--parse-fn", type=str, help="Name of the parse function to use."
     )
     parser.add_argument(
-        "--parser-modules", type=str, nargs='*', default=[], help="Path(s) to Python module(s) with parse function(s): parse_fn_name(filename: str) -> [Group]."
+        "--parser-modules",
+        type=str,
+        nargs="*",
+        default=[],
+        help="Path(s) to Python module(s) with parse function(s): parse_fn_name(filename: str) -> [Group].",
     )
     parser.add_argument(
-        "--registers", type=str, nargs='+', default=[], help="Registers to generate."
+        "--registers", type=str, nargs="+", default=[], help="Registers to generate."
     )
 
     return parser.parse_args()
@@ -134,6 +141,6 @@ def main():
     args = parse_cmdline()
     generate(args)
 
+
 if __name__ == "__main__":
     main()
-    

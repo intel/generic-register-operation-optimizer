@@ -40,7 +40,7 @@ constexpr auto grp = G{};
 TEST_CASE("write_spec is made by combining group and paths", "[write_spec]") {
     using namespace groov::literals;
     auto spec = grp("reg0"_r = 5);
-    static_assert(
+    STATIC_REQUIRE(
         stdx::is_specialization_of_v<decltype(spec), groov::write_spec>);
 }
 
@@ -48,7 +48,7 @@ TEST_CASE("valid paths are captured", "[write_spec]") {
     using namespace groov::literals;
     auto p = "reg0"_r = 5;
     auto spec = grp(p);
-    static_assert(
+    STATIC_REQUIRE(
         std::is_same_v<decltype(spec)::paths_t,
                        boost::mp11::mp_list<typename decltype(p)::path_t>>);
 }
@@ -58,7 +58,7 @@ TEST_CASE("multiple paths can be passed", "[write_spec]") {
     auto p = "reg0"_r = 5;
     auto q = "reg1"_r = 6;
     auto spec = grp(p, q);
-    static_assert(
+    STATIC_REQUIRE(
         std::is_same_v<decltype(spec)::paths_t,
                        boost::mp11::mp_list<typename decltype(p)::path_t,
                                             typename decltype(q)::path_t>>);
@@ -68,7 +68,7 @@ TEST_CASE("operator/ is overloaded to make write_spec", "[write_spec]") {
     using namespace groov::literals;
     auto p = "reg0"_r = 5;
     auto spec = grp / p;
-    static_assert(
+    STATIC_REQUIRE(
         std::is_same_v<decltype(spec)::paths_t,
                        boost::mp11::mp_list<typename decltype(p)::path_t>>);
 }
