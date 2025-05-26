@@ -22,6 +22,7 @@ add_tests(
     read_spec
     value_path
     write
+    write_functions
     write_spec)
 add_subdirectory(fail)
 
