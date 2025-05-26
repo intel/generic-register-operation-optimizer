@@ -14,13 +14,13 @@ using my_field = groov::field<"field", std::uint32_t, 3, 0, groov::w::replace>;
 Built-in write functions are in the `groov::w` namespace. Examples are:
 
 - `replace` ("normal write")
-- `read_only`
+- `ignore`
 
 There are 16 possible write functions, each characterized by a truth table
 relating the current value *C*, the written value *W* and the result *R*. For
 example:
 
-.Truth table for replacement
+.Truth table for replace
 [width=30%,cols="1,1,1"]
 |===
 ^h|C ^h|W ^h|R
@@ -31,7 +31,7 @@ example:
 ^|1 ^|1 ^|1
 |===
 
-.Truth table for read-only
+.Truth table for ignore
 [width=30%,cols="1,1,1"]
 |===
 ^h|C ^h|W ^h|R
@@ -45,8 +45,8 @@ example:
 ==== Identity specs
 
 Each write function may have an identity spec indicated by its truth table and
-exposed as the alias `id_spec`. For replacement, the identity spec is `none`.
-For read-only, the identity spec is `any`. There are 4 possible identity specs:
+exposed as the alias `id_spec`. For `replace`, the identity spec is `none`.
+For `ignore`, the identity spec is `any`. There are 4 possible identity specs:
 
 - `none`
 - `zero`
@@ -99,7 +99,7 @@ But if the unwritten field(s) are read-only (or otherwise have an identity):
 
 [source,cpp]
 ----
-using my_field_0 = groov::field<"field_0", std::uint32_t, 9, 0, groov::w::read_only>;
+using my_field_0 = groov::field<"field_0", std::uint32_t, 9, 0, groov::w::ignore>;
 using my_field_1 = groov::field<"field_1", std::uint32_t, 31, 10>;
 using my_reg = groov::reg<"reg", std::uint32_t, 0xa'0000, groov::w::replace,
                            my_field_0, my_field_1>;
@@ -153,7 +153,7 @@ In order to model this, we could create 3 fields inside a single register -- wit
 an appropriate group and bus:
 [source,cpp]
 ----
-using F0 = groov::field<"reserved0", std::uint8_t, 0, 0, groov::w::read_only>;
+using F0 = groov::field<"reserved0", std::uint8_t, 0, 0, groov::w::ignore>;
 using FE = groov::field<"enable", std::uint8_t, 1, 1>;
 using F1 = groov::field<"reserved1", std::uint8_t, 7, 2, custom_write_func>;
 
@@ -173,7 +173,7 @@ groov::write(G{}("reg.enable"_f = 1)) | async::sync_wait();
 ----
 
 The table tells us to write bit 0 as 0, and this is already the default given by
-`w::read_only`, so that's OK for `F0`.
+`w::ignore`, so that's OK for `F0`.
 
 The `custom_write_func` needs to provide the correct "identity value" to
 write to `F1`. This it can do with an appropriate `id_spec`:

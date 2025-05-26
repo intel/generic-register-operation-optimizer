@@ -50,7 +50,7 @@ struct custom_field_func {
     };
 };
 
-using F0 = groov::field<"reserved0", std::uint8_t, 0, 0, groov::w::read_only>;
+using F0 = groov::field<"reserved0", std::uint8_t, 0, 0, groov::w::ignore>;
 using F1 = groov::field<"field", std::uint8_t, 1, 1>;
 using F2 = groov::field<"reserved1", std::uint8_t, 7, 2, custom_field_func>;
 

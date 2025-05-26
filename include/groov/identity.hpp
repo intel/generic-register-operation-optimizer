@@ -70,7 +70,7 @@ namespace w {
 struct replace {
     using id_spec = id::none;
 };
-struct read_only {
+struct ignore {
     using id_spec = id::any;
 };
 struct one_to_set {
