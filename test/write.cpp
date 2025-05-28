@@ -146,7 +146,7 @@ struct ct_address_bus {
 };
 } // namespace
 
-TEST_CASE("write a register with integral constant address", "[read]") {
+TEST_CASE("write a register with integral constant address", "[write]") {
     using R =
         groov::reg<"reg", std::uint32_t, std::integral_constant<int, 42>{}>;
     constexpr auto g = groov::group<"group", ct_address_bus, R>{};
@@ -154,4 +154,33 @@ TEST_CASE("write a register with integral constant address", "[read]") {
     using namespace groov::literals;
     sync_write(g("reg"_r = 0xa5a5'a5a5u));
     CHECK(data<42> == 0xa5a5'a5a5u);
+}
+
+namespace {
+struct bus_u8 {
+    struct dummy_sender {
+        using is_sender = void;
+    };
+    template <auto> static auto read(auto) -> async::sender auto {
+        return dummy_sender{};
+    }
+
+    template <auto Mask, auto IdMask, auto IdValue>
+    static auto write(auto addr, auto value) -> async::sender auto {
+        return async::just_result_of([=] { *addr = (*addr & ~Mask) | value; });
+    }
+};
+
+std::uint8_t data_u8{};
+using R_u8 =
+    groov::reg<"reg", std::uint8_t, &data_u8, groov::w::replace, F0, F1, F2>;
+using G_u8 = groov::group<"group", bus_u8, R_u8>;
+constexpr auto grp_u8 = G_u8{};
+} // namespace
+
+TEST_CASE("write a std::uint8_t register", "[write]") {
+    using namespace groov::literals;
+    data_u8 = 0b1'1010'1u;
+    sync_write(grp_u8("reg.field1"_f = 1));
+    CHECK(data_u8 == 0b1'0001'1u);
 }

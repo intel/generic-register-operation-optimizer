@@ -203,3 +203,31 @@ TEST_CASE("read a register with integral constant address", "[read]") {
     auto r = sync_read(g / "reg"_r);
     CHECK(r["reg"_r] == data<42>);
 }
+
+namespace {
+struct bus_u8 {
+    template <auto Mask> static auto read(auto addr) -> async::sender auto {
+        return async::just_result_of([=] { return *addr; });
+    }
+
+    struct dummy_sender {
+        using is_sender = void;
+    };
+    template <auto...> static auto write(auto...) -> async::sender auto {
+        return dummy_sender{};
+    }
+};
+
+std::uint8_t data_u8{};
+using R_u8 =
+    groov::reg<"reg", std::uint8_t, &data_u8, groov::w::replace, F0, F1, F2>;
+using G_u8 = groov::group<"group", bus_u8, R_u8>;
+constexpr auto grp_u8 = G_u8{};
+} // namespace
+
+TEST_CASE("read a std::uint8_t register", "[read]") {
+    using namespace groov::literals;
+    data_u8 = 0xa5u;
+    auto r = sync_read(grp_u8 / "reg"_r);
+    CHECK(r["reg"_r] == data_u8);
+}
