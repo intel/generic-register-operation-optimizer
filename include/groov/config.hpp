@@ -117,7 +117,8 @@ struct field : named_container<Name, SubFields...> {
 
     template <std::unsigned_integral RegType>
     constexpr static auto insert(RegType &dest, type_t value) -> void {
-        dest = (dest & ~mask<RegType>) | (static_cast<RegType>(value) << Lsb);
+        dest = static_cast<RegType>((dest & ~mask<RegType>) |
+                                    (static_cast<RegType>(value) << Lsb));
     }
 
     template <pathlike P> constexpr static auto resolve(P p) {

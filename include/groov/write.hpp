@@ -10,8 +10,6 @@
 
 #include <boost/mp11/algorithm.hpp>
 
-template <typename...> struct undef;
-
 namespace groov {
 namespace detail {
 template <typename Register, typename Spec, typename Mask, typename IdMask,
