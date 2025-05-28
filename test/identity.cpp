@@ -33,10 +33,9 @@ TEST_CASE("replace write function has no identity", "[identity]") {
     STATIC_REQUIRE(std::is_same_v<groov::w::replace::id_spec, groov::id::none>);
 }
 
-TEST_CASE("read_only write function has any identity", "[identity]") {
-    STATIC_REQUIRE(groov::write_function<groov::w::read_only>);
-    STATIC_REQUIRE(
-        std::is_same_v<groov::w::read_only::id_spec, groov::id::any>);
+TEST_CASE("ignore write function has any identity", "[identity]") {
+    STATIC_REQUIRE(groov::write_function<groov::w::ignore>);
+    STATIC_REQUIRE(std::is_same_v<groov::w::ignore::id_spec, groov::id::any>);
 }
 
 TEST_CASE("write one to set/clear write function has zero identity",

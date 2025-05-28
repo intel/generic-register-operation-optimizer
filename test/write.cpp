@@ -18,16 +18,12 @@ struct bus {
     static inline int num_reads{};
     static inline int num_writes{};
     static inline std::uint32_t last_mask{};
-    static inline std::uint32_t last_id_mask{};
-    static inline std::uint32_t last_id_value{};
 
     template <auto Mask, auto IdMask, auto IdValue>
     static auto write(auto addr, auto value) -> async::sender auto {
         return async::just_result_of([=] {
             ++num_writes;
             last_mask = Mask;
-            last_id_mask = IdMask;
-            last_id_value = IdValue;
             *addr = (*addr & ~Mask) | value;
         });
     }

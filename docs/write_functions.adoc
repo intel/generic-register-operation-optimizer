@@ -14,13 +14,13 @@ using my_field = groov::field<"field", std::uint32_t, 3, 0, groov::w::replace>;
 Built-in write functions are in the `groov::w` namespace. Examples are:
 
 - `replace` ("normal write")
-- `read_only`
+- `ignore`
 
 There are 16 possible write functions, each characterized by a truth table
 relating the current value *C*, the written value *W* and the result *R*. For
 example:
 
-.Truth table for replacement
+.Truth table for replace
 [width=30%,cols="1,1,1"]
 |===
 ^h|C ^h|W ^h|R
@@ -31,7 +31,7 @@ example:
 ^|1 ^|1 ^|1
 |===
 
-.Truth table for read-only
+.Truth table for ignore
 [width=30%,cols="1,1,1"]
 |===
 ^h|C ^h|W ^h|R
@@ -45,8 +45,8 @@ example:
 ==== Identity specs
 
 Each write function may have an identity spec indicated by its truth table and
-exposed as the alias `id_spec`. For replacement, the identity spec is `none`.
-For read-only, the identity spec is `any`. There are 4 possible identity specs:
+exposed as the alias `id_spec`. For `replace`, the identity spec is `none`.
+For `ignore`, the identity spec is `any`. There are 4 possible identity specs:
 
 - `none`
 - `zero`
@@ -99,7 +99,7 @@ But if the unwritten field(s) are read-only (or otherwise have an identity):
 
 [source,cpp]
 ----
-using my_field_0 = groov::field<"field_0", std::uint32_t, 9, 0, groov::w::read_only>;
+using my_field_0 = groov::field<"field_0", std::uint32_t, 9, 0, groov::w::ignore>;
 using my_field_1 = groov::field<"field_1", std::uint32_t, 31, 10>;
 using my_reg = groov::reg<"reg", std::uint32_t, 0xa'0000, groov::w::replace,
                            my_field_0, my_field_1>;
@@ -117,3 +117,93 @@ constexpr auto identity_value = 0u;          // field_0 has id_spec any (zeroes 
 // unwritten bits and avoid read-modify-write
 bus::template write<write_mask, identity_mask, identity_value>(/* ... */);
 ----
+
+==== Custom write functions
+
+Custom write functions can be used to deal with registers that have special requirements.
+
+NOTE: Try not to think of registers/fields as simply "read-only" or similar. While
+"read-only" is a good interface-level abstraction, it's not the same concept when
+dealing with hardware. Individual bits are not addressable, so a register whose
+bits are not _all_ "read-only" must be written with _some value_ for those bits
+(which the hardware may or may not ignore). This is the job of the write
+function in concert with the bus.
+
+Imagine that we have a register containing one "writable" bit, and other reserved
+bits whose write semantics are specified:
+
+[width=80%,cols="4,1,8"]
+|===
+^h|Field ^h|Bits ^h|Description
+
+^|Reserved ^|7 ^|Reserved. Write as 0.
+^|Reserved ^|6 ^|Reserved. Write as 1.
+^|Reserved ^|5 ^|Reserved. Write as 1.
+^|Reserved ^|4 ^|Reserved. Write as 0.
+^|Reserved ^|3 ^|Reserved. Write as 0.
+^|Reserved ^|2 ^|Reserved. Write as 0.
+^|ENABLE   ^|1 ^|Enable bit.
+^|Reserved ^|0 ^|Reserved. Write as 0.
+|===
+
+Note the write semantics here. Bits 5 and 6 must be written as `1`. The other
+reserved bits must be written as `0`.
+
+In order to model this, we could create 3 fields inside a single register -- with
+an appropriate group and bus:
+[source,cpp]
+----
+using F0 = groov::field<"reserved0", std::uint8_t, 0, 0, groov::w::ignore>;
+using FE = groov::field<"enable", std::uint8_t, 1, 1>;
+using F1 = groov::field<"reserved1", std::uint8_t, 7, 2, custom_write_func>;
+
+using R =
+    groov::reg<"reg", std::uint32_t, REG_ADDRESS, groov::w::replace, F0, FE, F1>;
+using G = groov::group<"group1", bus_t, R>;
+----
+
+Notice that `R`​'s write function is the default `w::replace` which is
+overridden at the level of individual fields. We are going to write to this
+register, after all.
+
+In user code, we'll only write to the `enable` field (`FE`):
+[source,cpp]
+----
+groov::write(G{}("reg.enable"_f = 1)) | async::sync_wait();
+----
+
+The table tells us to write bit 0 as 0, and this is already the default given by
+`w::ignore`, so that's OK for `F0`.
+
+The `custom_write_func` needs to provide the correct "identity value" to
+write to `F1`. This it can do with an appropriate `id_spec`:
+[source,cpp]
+----
+struct custom_write_func {
+    struct id_spec {
+        template <std::unsigned_integral T, std::size_t Msb, std::size_t Lsb>
+        constexpr static auto identity() -> T {
+            // sanity checks: this is just for F1
+            static_assert(Msb == 7);
+            static_assert(Lsb == 2);
+            return 0b0110'0000u; // bits 5 and 6 are 1
+        }
+    };
+};
+----
+
+And the bus's `write` function must take account of the identity mask and value
+as well as the user-supplied bit(s) to write, for example:
+[source,cpp]
+----
+template <auto Mask, auto IdMask, auto IdValue>
+static auto write(auto addr, auto value) -> async::sender auto {
+    return async::just_result_of([=] {
+        auto prev = *addr & ~(Mask | IdMask);
+        *addr = prev | value | IdValue;
+    });
+}
+----
+
+The result of this is that when we write to the `enable` field, the other bits
+of the register get written correctly.
