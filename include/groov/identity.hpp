@@ -86,4 +86,16 @@ struct zero_to_clear {
     using id_spec = id::one;
 };
 } // namespace w
+
+template <typename T>
+concept identity_write_function =
+    write_function<T> and identity_spec<typename T::id_spec>;
+
+template <identity_write_function T> struct read_only : T {
+    using read_only_t = int;
+};
+
+template <typename T>
+concept read_only_write_function =
+    identity_write_function<T> and requires { typename T::read_only_t; };
 } // namespace groov

@@ -1,22 +1,24 @@
 #pragma once
 
 #include <groov/config.hpp>
+#include <groov/identity.hpp>
 
 #include <async/concepts.hpp>
 #include <async/let_value.hpp>
 #include <async/when_all.hpp>
 
+#include <stdx/compiler.hpp>
+#include <stdx/static_assert.hpp>
 #include <stdx/tuple_algorithms.hpp>
 
 #include <boost/mp11/algorithm.hpp>
 
 namespace groov {
 namespace detail {
-template <typename Register, typename Spec, typename Mask, typename IdMask,
+template <typename Register, typename Bus, typename Mask, typename IdMask,
           typename IdValue, typename V>
 auto write(V value) -> async::sender auto {
-    using bus_t = typename Spec::bus_t;
-    return bus_t::template write<Mask::value, IdMask::value, IdValue::value>(
+    return Bus::template write<Mask::value, IdMask::value, IdValue::value>(
         Register::address, value);
 }
 
@@ -28,6 +30,19 @@ using compute_id_mask_t = bitwise_accum_t<ObjList, id_mask_q, Reg>;
 
 template <typename Reg, typename ObjList>
 using compute_id_value_t = bitwise_accum_t<ObjList, id_value_q, Reg>;
+
+template <typename F> CONSTEVAL auto check_readonly_field() {
+    STATIC_ASSERT(not read_only_write_function<typename F::write_fn_t>,
+                  "Attempting to write to a read-only field: {}", F::name);
+}
+
+template <typename L> CONSTEVAL auto check_read_only() -> void {
+    [[maybe_unused]] auto r = stdx::for_each(
+        []<typename... Fs>(boost::mp11::mp_list<Fs...>) {
+            (check_readonly_field<Fs>(), ...);
+        },
+        L{});
+}
 } // namespace detail
 
 constexpr inline struct write_t {
@@ -39,6 +54,7 @@ constexpr inline struct write_t {
 
         using written_fields_per_reg_t =
             boost::mp11::mp_transform<detail::all_fields_t, fields_per_reg_t>;
+        detail::check_read_only<written_fields_per_reg_t>();
 
         using all_fields_per_reg_t = boost::mp11::mp_transform<
             detail::all_fields_t,
@@ -68,8 +84,8 @@ constexpr inline struct write_t {
         return stdx::transform(
                    []<typename R, typename Mask, typename IdMask,
                       typename IdValue>(R const &r, Mask, IdMask, IdValue) {
-                       return detail::write<R, Spec, Mask, IdMask, IdValue>(
-                           r.value);
+                       return detail::write<R, typename Spec::bus_t, Mask,
+                                            IdMask, IdValue>(r.value);
                    },
                    s.value, field_masks_t{}, identity_masks_t{},
                    identity_values_t{})

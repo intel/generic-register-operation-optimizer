@@ -207,3 +207,25 @@ static auto write(auto addr, auto value) -> async::sender auto {
 
 The result of this is that when we write to the `enable` field, the other bits
 of the register get written correctly.
+
+=== Read-only fields
+
+A field may be denoted read-only by marking its write function as such:
+
+[source,cpp]
+----
+using FR = groov::field<"reserved", std::uint8_t, 1, 1, groov::read_only<groov::w::ignore>>;
+----
+
+If a field is marked read-only, it's a compile-time error to attempt to assign it a value:
+
+[source,cpp]
+----
+groov::write(G{}("reg.reserved"_f = 1)) | async::sync_wait();
+// compile error: "Attempting to write to a read-only field: reserved"
+----
+
+A write function wrapped with `read_only` in this way must have an `id_spec` that
+provides its identity bits. When the register containing a read-only field is
+written, the bits provided by the `id_spec` for the read-only field(s) will be
+used.
