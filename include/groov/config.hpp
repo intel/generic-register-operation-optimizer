@@ -100,15 +100,15 @@ struct field : named_container<Name, SubFields...> {
     using id_spec_t = typename write_fn_t::id_spec;
 
     template <std::unsigned_integral RegType>
-    constexpr static auto identity =
-        detail::compute_identity<id_spec_t, RegType, Msb, Lsb>();
-
-    template <std::unsigned_integral RegType>
     constexpr static auto mask = stdx::bit_mask<RegType, Msb, Lsb>();
 
     template <std::unsigned_integral RegType>
     constexpr static auto identity_mask =
         detail::compute_identity_mask<id_spec_t, RegType, Msb, Lsb>();
+
+    template <std::unsigned_integral RegType>
+    constexpr static auto identity =
+        detail::compute_identity<id_spec_t, RegType, identity_mask<RegType>>();
 
     template <std::unsigned_integral RegType>
     constexpr static auto extract(RegType value) -> type_t {
@@ -132,6 +132,13 @@ struct reg : field<Name, T, std::numeric_limits<T>::digits - 1, 0u, WriteFn,
                    Fields...> {
     using address_t = decltype(Address);
     constexpr static auto address = Address;
+
+    constexpr static T unused_mask =
+        identity_spec<typename reg::id_spec_t>
+            ? reg::template mask<T> & ~(T{} | ... | Fields::template mask<T>)
+            : T{};
+    constexpr static auto unused_identity =
+        detail::compute_identity<typename reg::id_spec_t, T, unused_mask>();
 
     template <std::same_as<T> RegType>
     constexpr static auto extract(RegType value) {

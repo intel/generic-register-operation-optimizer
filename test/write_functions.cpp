@@ -7,6 +7,8 @@
 #include <async/just_result_of.hpp>
 #include <async/sync_wait.hpp>
 
+#include <stdx/bit.hpp>
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <cstdint>
@@ -19,7 +21,7 @@ struct bus {
     static auto write(auto addr, auto value) -> async::sender auto {
         return async::just_result_of([=] {
             CHECK(Mask == 0b10);
-            CHECK((Mask | IdMask) == 0xffu);
+            CHECK((Mask | IdMask) == 0xffff'ffffu);
             ++num_writes;
             auto prev = *addr & ~(Mask | IdMask);
             *addr = prev | value | IdValue;
@@ -41,10 +43,9 @@ template <typename T> auto sync_write(T const &t) {
 
 struct custom_field_func {
     struct id_spec {
-        template <std::unsigned_integral T, std::size_t Msb, std::size_t Lsb>
-        constexpr static auto identity() -> T {
-            static_assert(Msb == 7);
-            static_assert(Lsb == 2);
+        template <auto Mask>
+        constexpr static auto identity() -> decltype(Mask) {
+            static_assert(Mask == stdx::bit_mask<std::uint8_t, 7, 2>());
             return 0b0110'0000u;
         }
     };
@@ -57,8 +58,7 @@ using F2 = groov::field<"reserved1", std::uint8_t, 7, 2,
                         groov::read_only<custom_field_func>>;
 
 std::uint32_t data{};
-using R =
-    groov::reg<"reg", std::uint32_t, &data, groov::w::replace, F0, F1, F2>;
+using R = groov::reg<"reg", std::uint32_t, &data, groov::w::ignore, F0, F1, F2>;
 
 using G = groov::group<"group", bus, R>;
 constexpr auto grp = G{};

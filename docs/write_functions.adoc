@@ -208,6 +208,10 @@ static auto write(auto addr, auto value) -> async::sender auto {
 The result of this is that when we write to the `enable` field, the other bits
 of the register get written correctly.
 
+NOTE: If a register has bits that are not addressed by any fields, the identity
+values for those fields will be taken from the write function on the register
+itself.
+
 === Read-only fields
 
 A field may be denoted read-only by marking its write function as such:
