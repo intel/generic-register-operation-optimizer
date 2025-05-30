@@ -14,17 +14,17 @@ TEST_CASE("all specs except none fulfil identity_spec", "[identity]") {
 }
 
 TEST_CASE("zero id spec returns a zeroed identity", "[identity]") {
-    constexpr auto i = groov::id::zero::identity<std::uint8_t, 7, 0>();
+    constexpr auto i = groov::id::zero::identity<std::uint8_t{0xffu}>();
     STATIC_REQUIRE(i == 0);
 }
 
 TEST_CASE("one id spec returns a identity with ones", "[identity]") {
-    constexpr auto i = groov::id::one::identity<std::uint8_t, 7, 0>();
+    constexpr auto i = groov::id::one::identity<std::uint8_t{0xffu}>();
     STATIC_REQUIRE(i == 0xffu);
 }
 
 TEST_CASE("any id spec returns a zeroed identity", "[identity]") {
-    constexpr auto i = groov::id::any::identity<std::uint8_t, 7, 0>();
+    constexpr auto i = groov::id::any::identity<std::uint8_t{0xffu}>();
     STATIC_REQUIRE(i == 0);
 }
 

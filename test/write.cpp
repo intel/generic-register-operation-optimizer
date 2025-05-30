@@ -24,7 +24,8 @@ struct bus {
         return async::just_result_of([=] {
             ++num_writes;
             last_mask = Mask;
-            *addr = (*addr & ~Mask) | value;
+            auto prev = *addr & ~(Mask | IdMask);
+            *addr = prev | value | IdValue;
         });
     }
 
@@ -140,8 +141,10 @@ struct ct_address_bus {
 
     template <auto Mask, auto IdMask, auto IdValue, typename T>
     static auto write(T, auto value) -> async::sender auto {
-        return async::just_result_of(
-            [=] { data<T::value> = (data<T::value> & ~Mask) | value; });
+        return async::just_result_of([=] {
+            auto prev = data<T::value> & ~(Mask | IdMask);
+            data<T::value> = prev | value | IdValue;
+        });
     }
 };
 } // namespace
@@ -167,7 +170,10 @@ struct bus_u8 {
 
     template <auto Mask, auto IdMask, auto IdValue>
     static auto write(auto addr, auto value) -> async::sender auto {
-        return async::just_result_of([=] { *addr = (*addr & ~Mask) | value; });
+        return async::just_result_of([=] {
+            auto prev = *addr & ~(Mask | IdMask);
+            *addr = static_cast<std::uint8_t>(prev | value | IdValue);
+        });
     }
 };
 
@@ -183,4 +189,23 @@ TEST_CASE("write a std::uint8_t register", "[write]") {
     data_u8 = 0b1'1010'1u;
     sync_write(grp_u8("reg.field1"_f = 1));
     CHECK(data_u8 == 0b1'0001'1u);
+}
+
+namespace {
+std::uint32_t data2{};
+struct custom_write_fn {
+    using id_spec = groov::id::one;
+};
+
+using R_partial =
+    groov::reg<"reg2", std::uint32_t, &data2, custom_write_fn, F0, F1, F2>;
+
+using G1 = groov::group<"group", bus, R_partial>;
+} // namespace
+
+TEST_CASE("write a partial register", "[write]") {
+    using namespace groov::literals;
+    data2 = 0b1'1010'1u;
+    sync_write(G1{}("reg2.field1"_f = 1));
+    CHECK(data2 == 0b1111'1111'1111'1111'1111'1111'001'0001'1u);
 }

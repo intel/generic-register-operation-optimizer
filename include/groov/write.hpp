@@ -13,13 +13,19 @@
 
 #include <boost/mp11/algorithm.hpp>
 
+#include <limits>
+#include <type_traits>
+#include <utility>
+
+template <typename...> struct undef;
+template <auto...> struct undef_v;
+
 namespace groov {
 namespace detail {
-template <typename Register, typename Bus, typename Mask, typename IdMask,
-          typename IdValue, typename V>
+template <typename Register, typename Bus, auto Mask, auto IdMask, auto IdValue,
+          typename V>
 auto write(V value) -> async::sender auto {
-    return Bus::template write<Mask::value, IdMask::value, IdValue::value>(
-        Register::address, value);
+    return Bus::template write<Mask, IdMask, IdValue>(Register::address, value);
 }
 
 template <typename Reg, typename ObjList>
@@ -30,6 +36,17 @@ using compute_id_mask_t = bitwise_accum_t<ObjList, id_mask_q, Reg>;
 
 template <typename Reg, typename ObjList>
 using compute_id_value_t = bitwise_accum_t<ObjList, id_value_q, Reg>;
+
+template <typename Reg, typename ObjList>
+using compute_id_value_t = bitwise_accum_t<ObjList, id_value_q, Reg>;
+
+template <typename Reg>
+using compute_reg_id_mask_t =
+    std::integral_constant<typename Reg::type_t, Reg::unused_mask>;
+
+template <typename Reg>
+using compute_reg_id_value_t =
+    std::integral_constant<typename Reg::type_t, Reg::unused_identity>;
 
 template <typename F> CONSTEVAL auto check_readonly_field() {
     STATIC_ASSERT(not read_only_write_function<typename F::write_fn_t>,
@@ -81,14 +98,26 @@ constexpr inline struct write_t {
                                       typename Spec::value_t,
                                       unwritten_fields_per_reg_t>;
 
+        using reg_identity_masks_t =
+            boost::mp11::mp_transform<detail::compute_reg_id_mask_t,
+                                      typename Spec::value_t>;
+        using reg_identity_values_t =
+            boost::mp11::mp_transform<detail::compute_reg_id_value_t,
+                                      typename Spec::value_t>;
+
         return stdx::transform(
                    []<typename R, typename Mask, typename IdMask,
-                      typename IdValue>(R const &r, Mask, IdMask, IdValue) {
-                       return detail::write<R, typename Spec::bus_t, Mask,
-                                            IdMask, IdValue>(r.value);
+                      typename IdValue, typename RegIdMask,
+                      typename RegIdValue>(R const &r, Mask, IdMask, IdValue,
+                                           RegIdMask, RegIdValue) {
+                       return detail::write<
+                           R, typename Spec::bus_t, Mask::value,
+                           (IdMask::value | RegIdMask::value),
+                           (IdValue::value | RegIdValue::value)>(r.value);
                    },
                    s.value, field_masks_t{}, identity_masks_t{},
-                   identity_values_t{})
+                   identity_values_t{}, reg_identity_masks_t{},
+                   reg_identity_values_t{})
             .apply([]<typename... Ws>(Ws &&...ws) {
                 return async::when_all(std::forward<Ws>(ws)...);
             });

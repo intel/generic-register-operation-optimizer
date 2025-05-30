@@ -14,9 +14,7 @@
 namespace groov {
 template <typename T>
 concept identity_spec = requires {
-    {
-        T::template identity<unsigned int, std::size_t{}, std::size_t{}>()
-    } -> std::same_as<unsigned int>;
+    { T::template identity<std::size_t{}>() } -> std::same_as<std::size_t>;
 };
 
 namespace detail {
@@ -30,11 +28,10 @@ constexpr auto compute_identity_mask() {
     }
 }
 
-template <typename I, std::unsigned_integral T, std::size_t Msb,
-          std::size_t Lsb>
+template <typename I, std::unsigned_integral T, T Mask>
 constexpr auto compute_identity() {
     if constexpr (identity_spec<I>) {
-        return I::template identity<T, Msb, Lsb>();
+        return I::template identity<Mask>();
     } else {
         return T{};
     }
@@ -44,20 +41,17 @@ constexpr auto compute_identity() {
 namespace id {
 struct none {};
 struct zero {
-    template <std::unsigned_integral T, std::size_t, std::size_t>
-    constexpr static auto identity() -> T {
+    template <auto Mask> constexpr static auto identity() -> decltype(Mask) {
         return {};
     }
 };
 struct one {
-    template <std::unsigned_integral T, std::size_t Msb, std::size_t Lsb>
-    constexpr static auto identity() -> T {
-        return stdx::bit_mask<T, Msb, Lsb>();
+    template <auto Mask> constexpr static auto identity() -> decltype(Mask) {
+        return Mask;
     }
 };
 struct any {
-    template <std::unsigned_integral T, std::size_t, std::size_t>
-    constexpr static auto identity() -> T {
+    template <auto Mask> constexpr static auto identity() -> decltype(Mask) {
         return {};
     }
 };
