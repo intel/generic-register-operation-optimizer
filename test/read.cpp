@@ -231,3 +231,22 @@ TEST_CASE("read a std::uint8_t register", "[read]") {
     auto r = sync_read(grp_u8 / "reg"_r);
     CHECK(r["reg"_r] == data_u8);
 }
+
+namespace {
+enum struct E : std::uint8_t { A = 0, B = 1, C = 2 };
+using F_enum = groov::field<"field", E, 1, 0>;
+
+std::uint32_t data_enum{};
+using R_enum =
+    groov::reg<"reg", std::uint32_t, &data_enum, groov::w::replace, F_enum>;
+
+using G_enum = groov::group<"group", bus, R_enum>;
+constexpr auto grp_enum = G_enum{};
+} // namespace
+
+TEST_CASE("read an enum field", "[read]") {
+    using namespace groov::literals;
+    data_enum = 0b10u;
+    auto r = sync_read(grp_enum / "reg"_r);
+    CHECK(r["reg.field"_r] == E::C);
+}
