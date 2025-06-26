@@ -209,3 +209,22 @@ TEST_CASE("write a partial register", "[write]") {
     sync_write(G1{}("reg2.field1"_f = 1));
     CHECK(data2 == 0b1111'1111'1111'1111'1111'1111'001'0001'1u);
 }
+
+namespace {
+enum struct E : std::uint8_t { A = 0, B = 1, C = 2 };
+using F_enum = groov::field<"field", E, 1, 0>;
+
+std::uint32_t data_enum{};
+using R_enum =
+    groov::reg<"reg", std::uint32_t, &data_enum, groov::w::replace, F_enum>;
+
+using G_enum = groov::group<"group", bus, R_enum>;
+constexpr auto grp_enum = G_enum{};
+} // namespace
+
+TEST_CASE("write an enum field", "[read]") {
+    using namespace groov::literals;
+    data_enum = 0u;
+    sync_write(grp_enum("reg.field"_f = E::C));
+    CHECK(data_enum == 0b10u);
+}
