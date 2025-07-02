@@ -76,30 +76,36 @@ CONSTEVAL auto make_path() -> pathlike auto {
 } // namespace detail
 
 #if __clang__ && __clang_major__ <= 14
-template <class T, T... chars> CONSTEVAL auto operator""_g() -> pathlike auto {
+template <class T, T... chars>
+CONSTEVAL_UDL auto operator""_g() -> pathlike auto {
     constexpr auto s = stdx::ct_string<sizeof...(chars) + 1U>{{chars..., 0}};
     return detail::make_path<s>();
 }
 
-template <class T, T... chars> CONSTEVAL auto operator""_r() -> pathlike auto {
+template <class T, T... chars>
+CONSTEVAL_UDL auto operator""_r() -> pathlike auto {
     constexpr auto s = stdx::ct_string<sizeof...(chars) + 1U>{{chars..., 0}};
     return detail::make_path<s>();
 }
 
-template <class T, T... chars> CONSTEVAL auto operator""_f() -> pathlike auto {
+template <class T, T... chars>
+CONSTEVAL_UDL auto operator""_f() -> pathlike auto {
     constexpr auto s = stdx::ct_string<sizeof...(chars) + 1U>{{chars..., 0}};
     return detail::make_path<s>();
 }
 #else
-template <stdx::ct_string S> CONSTEVAL auto operator""_g() -> pathlike auto {
+template <stdx::ct_string S>
+CONSTEVAL_UDL auto operator""_g() -> pathlike auto {
     return detail::make_path<S>();
 }
 
-template <stdx::ct_string S> CONSTEVAL auto operator""_r() -> pathlike auto {
+template <stdx::ct_string S>
+CONSTEVAL_UDL auto operator""_r() -> pathlike auto {
     return detail::make_path<S>();
 }
 
-template <stdx::ct_string S> CONSTEVAL auto operator""_f() -> pathlike auto {
+template <stdx::ct_string S>
+CONSTEVAL_UDL auto operator""_f() -> pathlike auto {
     return detail::make_path<S>();
 }
 #endif
