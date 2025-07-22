@@ -13,7 +13,9 @@ add_fail_tests(
     path_too_long
     read_ambiguous_path
     read_invalid_path
-    read_only_field_without_identity)
+    read_only_field_without_identity
+    sync_read_nontrivial
+    sync_write_nontrivial)
 
 function(add_formatted_error_tests)
     add_fail_tests(write_read_only_field)

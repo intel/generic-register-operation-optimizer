@@ -5,7 +5,6 @@
 
 #include <async/concepts.hpp>
 #include <async/just.hpp>
-#include <async/sync_wait.hpp>
 
 #include <cstdint>
 
@@ -32,10 +31,6 @@ std::uint32_t data1{};
 using R1 = groov::reg<"reg1", std::uint32_t, &data1, groov::w::replace, F0>;
 
 using G = groov::group<"group", bus, R0, R1>;
-
-template <typename T> auto sync_read(T const &t) {
-    return get<0>(*(groov::read(t) | async::sync_wait()));
-}
 } // namespace
 
 auto main() -> int {

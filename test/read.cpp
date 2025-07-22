@@ -45,13 +45,17 @@ using R1 =
 
 using G = groov::group<"group", bus, R0, R1>;
 constexpr auto grp = G{};
-
-template <typename T> auto sync_read(T const &t) {
-    return get<0>(*(groov::read(t) | async::sync_wait()));
-}
 } // namespace
 
 TEST_CASE("read a register", "[read]") {
+    using namespace groov::literals;
+    data0 = 0xa5a5'a5a5u;
+    auto s = read(grp / "reg0"_r);
+    auto r = get<0>(*(s | async::sync_wait()));
+    CHECK(r["reg0"_r] == data0);
+}
+
+TEST_CASE("sync_read a register", "[read]") {
     using namespace groov::literals;
     data0 = 0xa5a5'a5a5u;
     auto r = sync_read(grp / "reg0"_r);
@@ -172,8 +176,15 @@ TEST_CASE("read mask is passed to bus", "[read]") {
 TEST_CASE("read is pipeable", "[read]") {
     using namespace groov::literals;
     data0 = 0xa5a5'a5a5u;
-    auto r = async::just(grp / "reg0"_r) | groov::read | async::sync_wait();
+    auto r = async::just(grp / "reg0"_r) | groov::read() | async::sync_wait();
     CHECK(get<0>(*r)["reg0"_r] == data0);
+}
+
+TEST_CASE("sync_read is pipeable", "[read]") {
+    using namespace groov::literals;
+    data0 = 0xa5a5'a5a5u;
+    auto r = async::just(grp / "reg0"_r) | groov::sync_read();
+    CHECK(r["reg0"_r] == data0);
 }
 
 namespace {

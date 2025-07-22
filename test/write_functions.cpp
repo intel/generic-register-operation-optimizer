@@ -37,10 +37,6 @@ struct bus {
     }
 };
 
-template <typename T> auto sync_write(T const &t) {
-    return groov::write(t) | async::sync_wait();
-}
-
 struct custom_field_func {
     struct id_spec {
         template <auto Mask>
@@ -69,7 +65,7 @@ TEST_CASE("write a register with a custom write function field",
     using namespace groov::literals;
     bus::num_writes = 0;
     data = 0b0100'0000u;
-    sync_write(grp("reg.field"_f = 1));
+    CHECK(sync_write(grp("reg.field"_f = 1)));
     CHECK(bus::num_writes == 1);
     CHECK(data == 0b0110'0010);
 }

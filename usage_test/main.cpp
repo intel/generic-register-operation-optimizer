@@ -36,12 +36,12 @@ auto main() -> int {
     using namespace groov::literals;
     data = 0xa5u;
     async::just(grp / "reg"_r) //
-        | groov::read          //
+        | groov::read()        //
         | async::then([](auto spec) {
               spec["reg"_r] ^= 0xff;
               return spec;
-          })           //
-        | groov::write //
+          })             //
+        | groov::write() //
         | async::sync_wait();
     assert(data == 0x5au);
 }

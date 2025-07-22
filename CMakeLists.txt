@@ -14,9 +14,9 @@ else()
 endif()
 
 add_versioned_package("gh:boostorg/mp11#boost-1.83.0")
-add_versioned_package("gh:intel/cpp-baremetal-concurrency#0ddce52")
-add_versioned_package("gh:intel/cpp-std-extensions#effadd4")
-add_versioned_package("gh:intel/cpp-baremetal-senders-and-receivers#22c8006")
+add_versioned_package("gh:intel/cpp-baremetal-concurrency#9d6573a")
+add_versioned_package("gh:intel/cpp-std-extensions#73e1d48")
+add_versioned_package("gh:intel/cpp-baremetal-senders-and-receivers#8d87a4b")
 
 find_package(Python3 COMPONENTS Interpreter)
 

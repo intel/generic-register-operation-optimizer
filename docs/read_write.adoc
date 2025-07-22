@@ -74,8 +74,19 @@ Read can also be piped in a chain of senders.
 
 [source,cpp]
 ----
-auto r = async::just(grp / "reg"_r) | groov::read | async::sync_wait();
+auto r = async::just(grp / "reg"_r) | groov::read() | async::sync_wait();
 ----
+
+To do a simple read from a bus that is synchronous (e.g. an MMIO bus),
+`sync_read` may be called:
+
+[source,cpp]
+----
+auto r = async::just(grp / "reg"_r) | groov::sync_read();
+----
+
+NOTE: `sync_read` automatically assumes that the operation will succeed and
+returns the resulting `write_spec`.
 
 === Write
 
@@ -97,11 +108,22 @@ Write can also be piped in a chain of senders.
 
 [source,cpp]
 ----
-auto r = async::just(grp("reg"_r = 42)) | groov::write | async::sync_wait();
+auto r = async::just(grp("reg"_r = 42)) | groov::write() | async::sync_wait();
 ----
 
-NOTE: `read` and `write` are function objects, hence in a chain they appear as
-e.g. `groov::read` rather than `groov::read()`.
+To do a simple write to a bus that is synchronous (e.g. an MMIO bus),
+`sync_write` may be called:
+
+[source,cpp]
+----
+auto r = async::just(grp("reg"_r = 42)) | groov::sync_write();
+----
+
+The return value here is as for
+https://intel.github.io/cpp-baremetal-senders-and-receivers/#_sync_wait[`async::sync_wait`]:
+a `std::optional<stdx::tuple<T>>` where `T` is whatever is sent by the bus
+`write` function. A disengaged optional means that the write completed with an
+error (although this should not happen for an MMIO write).
 
 Because `read` sends a `write_spec`, a read-modify-write can be achieved with
 piping:
@@ -109,11 +131,11 @@ piping:
 [source,cpp]
 ----
 async::just(grp / "reg"_r)
-    | groov::read
+    | groov::read()
     | async::then(
       [](auto spec) { spec["reg"_r] ^= 0xffff'ffff;
                       return spec; })
-    | groov::write
+    | groov::write()
     | async::sync_wait();
 ----
 
