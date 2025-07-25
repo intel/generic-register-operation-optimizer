@@ -289,4 +289,7 @@ template <typename ObjList>
 using all_fields_t = boost::mp11::mp_back<boost::mp11::mp_iterate<
     ObjList, boost::mp11::mp_identity_t, maybe_expand_children>>;
 } // namespace detail
+
+struct blocking;
+struct non_blocking;
 } // namespace groov

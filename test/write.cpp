@@ -51,22 +51,24 @@ using R1 =
 
 using G = groov::group<"group", bus, R0, R1>;
 constexpr auto grp = G{};
-
-template <typename T> auto sync_write(T const &t) {
-    return groov::write(t) | async::sync_wait();
-}
 } // namespace
 
 TEST_CASE("write a register", "[write]") {
     using namespace groov::literals;
-    sync_write(grp("reg0"_r = 0xa5a5'a5a5u));
+    CHECK(groov::write(grp("reg0"_r = 0xa5a5'a5a5u)) | async::sync_wait());
+    CHECK(data0 == 0xa5a5'a5a5u);
+}
+
+TEST_CASE("sync_write a register", "[write]") {
+    using namespace groov::literals;
+    CHECK(sync_write(grp("reg0"_r = 0xa5a5'a5a5u)));
     CHECK(data0 == 0xa5a5'a5a5u);
 }
 
 TEST_CASE("write a field", "[write]") {
     using namespace groov::literals;
     data0 = 0b1'1010'1u;
-    sync_write(grp("reg0.field1"_f = 1));
+    CHECK(sync_write(grp("reg0.field1"_f = 1)));
     CHECK(data0 == 0b1'0001'1u);
 }
 
@@ -74,7 +76,7 @@ TEST_CASE("write multiple fields to the same register", "[write]") {
     using namespace groov::literals;
     data0 = 0b1'1010'0u;
     bus::num_writes = 0;
-    sync_write(grp("reg0.field0"_f = 1, "reg0.field1"_f = 0b101u));
+    CHECK(sync_write(grp("reg0.field0"_f = 1, "reg0.field1"_f = 0b101u)));
     CHECK(bus::num_writes == 1);
     CHECK(data0 == 0b1'0101'1u);
 }
@@ -84,7 +86,7 @@ TEST_CASE("write multiple fields to different registers", "[write]") {
     data0 = 0b1'1010'0u;
     data1 = 0b1'1010'0u;
     bus::num_writes = 0;
-    sync_write(grp("reg0.field0"_f = 1, "reg1.field1"_f = 0b101u));
+    CHECK(sync_write(grp("reg0.field0"_f = 1, "reg1.field1"_f = 0b101u)));
     CHECK(bus::num_writes == 2);
     CHECK(data0 == 0b1'1010'1u);
     CHECK(data1 == 0b1'0101'0u);
@@ -95,8 +97,8 @@ TEST_CASE("write multiple fields to each of multiple registers", "[write]") {
     data0 = 0b1'0000'0u;
     data1 = 0b1'0000'1u;
     bus::num_writes = 0;
-    sync_write(grp("reg0.field0"_f = 1, "reg0.field1"_f = 0b101u,
-                   "reg1.field0"_f = 0, "reg1.field1"_f = 0b1010u));
+    CHECK(sync_write(grp("reg0.field0"_f = 1, "reg0.field1"_f = 0b101u,
+                         "reg1.field0"_f = 0, "reg1.field1"_f = 0b1010u)));
     CHECK(bus::num_writes == 2);
     CHECK(data0 == 0b1'0101'1u);
     CHECK(data1 == 0b1'1010'0u);
@@ -110,8 +112,15 @@ TEST_CASE("write mask is passed to bus", "[write]") {
 
 TEST_CASE("write is pipeable", "[write]") {
     using namespace groov::literals;
-    auto r = async::just(grp("reg0"_r = 0xa5a5'a5a5u)) | groov::write |
+    auto r = async::just(grp("reg0"_r = 0xa5a5'a5a5u)) | groov::write() |
              async::sync_wait();
+    CHECK(r);
+    CHECK(data0 == 0xa5a5'a5a5u);
+}
+
+TEST_CASE("sync_write is pipeable", "[write]") {
+    using namespace groov::literals;
+    auto r = async::just(grp("reg0"_r = 0xa5a5'a5a5u)) | groov::sync_write();
     CHECK(r);
     CHECK(data0 == 0xa5a5'a5a5u);
 }
@@ -120,12 +129,12 @@ TEST_CASE("piped read-modify-write", "[write]") {
     using namespace groov::literals;
     data0 = 0xa5u;
     auto r = async::just(grp / "reg0"_r) //
-             | groov::read               //
+             | groov::read()             //
              | async::then([](auto spec) {
                    spec["reg0"_r] ^= 0xff;
                    return spec;
-               })           //
-             | groov::write //
+               })             //
+             | groov::write() //
              | async::sync_wait();
     CHECK(r);
     CHECK(data0 == 0x5au);
@@ -155,7 +164,7 @@ TEST_CASE("write a register with integral constant address", "[write]") {
     constexpr auto g = groov::group<"group", ct_address_bus, R>{};
 
     using namespace groov::literals;
-    sync_write(g("reg"_r = 0xa5a5'a5a5u));
+    CHECK(sync_write(g("reg"_r = 0xa5a5'a5a5u)));
     CHECK(data<42> == 0xa5a5'a5a5u);
 }
 
@@ -187,7 +196,7 @@ constexpr auto grp_u8 = G_u8{};
 TEST_CASE("write a std::uint8_t register", "[write]") {
     using namespace groov::literals;
     data_u8 = 0b1'1010'1u;
-    sync_write(grp_u8("reg.field1"_f = 1));
+    CHECK(sync_write(grp_u8("reg.field1"_f = 1)));
     CHECK(data_u8 == 0b1'0001'1u);
 }
 
@@ -206,7 +215,7 @@ using G1 = groov::group<"group", bus, R_partial>;
 TEST_CASE("write a partial register", "[write]") {
     using namespace groov::literals;
     data2 = 0b1'1010'1u;
-    sync_write(G1{}("reg2.field1"_f = 1));
+    CHECK(sync_write(G1{}("reg2.field1"_f = 1)));
     CHECK(data2 == 0b1111'1111'1111'1111'1111'1111'001'0001'1u);
 }
 
@@ -225,6 +234,6 @@ constexpr auto grp_enum = G_enum{};
 TEST_CASE("write an enum field", "[read]") {
     using namespace groov::literals;
     data_enum = 0u;
-    sync_write(grp_enum("reg.field"_f = E::C));
+    CHECK(sync_write(grp_enum("reg.field"_f = E::C)));
     CHECK(data_enum == 0b10u);
 }

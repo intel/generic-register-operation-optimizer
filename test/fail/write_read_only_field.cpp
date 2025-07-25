@@ -7,7 +7,6 @@
 
 #include <async/concepts.hpp>
 #include <async/just_result_of.hpp>
-#include <async/sync_wait.hpp>
 
 #include <cstdint>
 
@@ -34,13 +33,9 @@ using F = groov::field<"field", std::uint8_t, 0, 0,
 std::uint32_t data{};
 using R = groov::reg<"reg", std::uint32_t, &data, groov::w::replace, F>;
 using G = groov::group<"group", bus, R>;
-
-template <typename T> auto sync_write(T const &t) {
-    return groov::write(t) | async::sync_wait();
-}
 } // namespace
 
 auto main() -> int {
     using namespace groov::literals;
-    sync_write(G{}("reg.field"_f = 1));
+    [[maybe_unused]] auto x = sync_write(G{}("reg.field"_f = 1));
 }
