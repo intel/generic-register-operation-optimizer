@@ -6,6 +6,7 @@
 #include <async/just.hpp>
 #include <async/just_result_of.hpp>
 #include <async/sync_wait.hpp>
+#include <async/then.hpp>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -185,6 +186,14 @@ TEST_CASE("sync_read is pipeable", "[read]") {
     data0 = 0xa5a5'a5a5u;
     auto r = async::just(grp / "reg0"_r) | groov::sync_read();
     CHECK(r["reg0"_r] == data0);
+}
+
+TEST_CASE("read is adaptor-pipeable", "[read]") {
+    using namespace groov::literals;
+    data0 = 0xa5a5'a5a5u;
+    auto s = groov::read() | async::then([](auto spec) { return spec; });
+    auto r = async::just(grp / "reg0"_r) | s | async::sync_wait();
+    CHECK(get<0>(*r)["reg0"_r] == data0);
 }
 
 namespace {

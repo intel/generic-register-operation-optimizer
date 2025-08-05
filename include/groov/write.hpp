@@ -133,7 +133,7 @@ struct pipeable {
 };
 } // namespace _write
 
-constexpr auto write() -> _write::pipeable { return {}; }
+constexpr auto write() { return async::compose(_write::pipeable{}); }
 
 namespace _sync_write {
 template <typename Behavior, async::sender S> [[nodiscard]] auto wait(S &&s) {
