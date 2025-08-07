@@ -55,12 +55,14 @@ constexpr auto grp = G{};
 
 TEST_CASE("write a register", "[write]") {
     using namespace groov::literals;
+    data0 = 0;
     CHECK(groov::write(grp("reg0"_r = 0xa5a5'a5a5u)) | async::sync_wait());
     CHECK(data0 == 0xa5a5'a5a5u);
 }
 
 TEST_CASE("sync_write a register", "[write]") {
     using namespace groov::literals;
+    data0 = 0;
     CHECK(sync_write(grp("reg0"_r = 0xa5a5'a5a5u)));
     CHECK(data0 == 0xa5a5'a5a5u);
 }
@@ -112,6 +114,7 @@ TEST_CASE("write mask is passed to bus", "[write]") {
 
 TEST_CASE("write is pipeable", "[write]") {
     using namespace groov::literals;
+    data0 = 0;
     auto r = async::just(grp("reg0"_r = 0xa5a5'a5a5u)) | groov::write() |
              async::sync_wait();
     CHECK(r);
@@ -120,7 +123,17 @@ TEST_CASE("write is pipeable", "[write]") {
 
 TEST_CASE("sync_write is pipeable", "[write]") {
     using namespace groov::literals;
+    data0 = 0;
     auto r = async::just(grp("reg0"_r = 0xa5a5'a5a5u)) | groov::sync_write();
+    CHECK(r);
+    CHECK(data0 == 0xa5a5'a5a5u);
+}
+
+TEST_CASE("write is adaptor-pipeable", "[write]") {
+    using namespace groov::literals;
+    data0 = 0;
+    auto s = groov::write() | async::then([] {});
+    auto r = async::just(grp("reg0"_r = 0xa5a5'a5a5u)) | s | async::sync_wait();
     CHECK(r);
     CHECK(data0 == 0xa5a5'a5a5u);
 }

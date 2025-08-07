@@ -5,6 +5,7 @@
 #include <groov/read_spec.hpp>
 #include <groov/write_spec.hpp>
 
+#include <async/compose.hpp>
 #include <async/concepts.hpp>
 #include <async/let_value.hpp>
 #include <async/sync_wait.hpp>
@@ -58,7 +59,7 @@ struct pipeable {
 };
 } // namespace _read
 
-constexpr auto read() -> _read::pipeable { return {}; }
+constexpr auto read() { return async::compose(_read::pipeable{}); }
 
 namespace _sync_read {
 template <typename Behavior, async::sender S> [[nodiscard]] auto wait(S &&s) {
