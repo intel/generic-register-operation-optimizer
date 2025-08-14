@@ -140,6 +140,14 @@ struct write_spec : Group {
         return F::extract(r.value);
     }
 
+    template <std::size_t N>
+    // NOLINTNEXTLINE(modernize-avoid-c-arrays)
+    constexpr auto operator[](char const (&)[N]) const {
+        static_assert(stdx::always_false_v<write_spec>,
+                      "Trying to index into a write_spec with a string "
+                      "literal: did you forget to use the UDL?");
+    }
+
     // NOLINTNEXTLINE(google-explicit-constructor)
     constexpr operator extract_type() const
         requires(not std::is_same_v<extract_type, detail::no_extract_type>)

@@ -15,7 +15,8 @@ add_fail_tests(
     read_invalid_path
     read_only_field_without_identity
     sync_read_nontrivial
-    sync_write_nontrivial)
+    sync_write_nontrivial
+    write_spec_literal_index)
 
 function(add_formatted_error_tests)
     add_fail_tests(write_read_only_field)
