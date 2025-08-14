@@ -136,12 +136,19 @@ struct pipeable {
 constexpr auto write() { return async::compose(_write::pipeable{}); }
 
 namespace _sync_write {
-template <typename Behavior, async::sender S> [[nodiscard]] auto wait(S &&s) {
+template <typename T> struct [[nodiscard]] async_write_result : T {};
+template <typename T> async_write_result(T) -> async_write_result<T>;
+
+template <typename Behavior, async::sender S> auto wait(S &&s) {
     static_assert(async::trivially_sync_waitable<S> or
                       std::is_same_v<Behavior, blocking>,
                   "sync_write() would block: if you really want this, use "
                   "sync_write<blocking>()");
-    return std::forward<S>(s) | async::sync_wait();
+    if constexpr (std::is_same_v<Behavior, blocking>) {
+        return async_write_result{std::forward<S>(s) | async::sync_wait()};
+    } else {
+        return std::forward<S>(s) | async::sync_wait();
+    }
 }
 
 template <typename Behavior> struct pipeable {
@@ -154,12 +161,12 @@ template <typename Behavior> struct pipeable {
 } // namespace _sync_write
 
 template <typename Behavior = non_blocking, typename T>
-[[nodiscard]] auto sync_write(T const &t) {
+auto sync_write(T const &t) {
     return _sync_write::wait<Behavior>(write(t));
 }
 
 template <typename Behavior = non_blocking>
-[[nodiscard]] auto sync_write() -> _sync_write::pipeable<Behavior> {
+auto sync_write() -> _sync_write::pipeable<Behavior> {
     return {};
 }
 } // namespace groov

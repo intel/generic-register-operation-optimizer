@@ -67,6 +67,13 @@ TEST_CASE("sync_write a register", "[write]") {
     CHECK(data0 == 0xa5a5'a5a5u);
 }
 
+TEST_CASE("non-blocking sync_write is not nodiscard", "[write]") {
+    using namespace groov::literals;
+    data0 = 0;
+    sync_write(grp("reg0"_r = 0xa5a5'a5a5u));
+    CHECK(data0 == 0xa5a5'a5a5u);
+}
+
 TEST_CASE("write a field", "[write]") {
     using namespace groov::literals;
     data0 = 0b1'1010'1u;
@@ -108,7 +115,7 @@ TEST_CASE("write multiple fields to each of multiple registers", "[write]") {
 
 TEST_CASE("write mask is passed to bus", "[write]") {
     using namespace groov::literals;
-    [[maybe_unused]] auto r = sync_write(grp("reg0.field1"_f = 5));
+    CHECK(sync_write(grp("reg0.field1"_f = 5)));
     CHECK(bus::last_mask == 0b1111'0u);
 }
 
