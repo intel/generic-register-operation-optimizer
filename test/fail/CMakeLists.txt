@@ -16,6 +16,7 @@ add_fail_tests(
     read_only_field_without_identity
     sync_read_nontrivial
     sync_write_nontrivial
+    sync_write_nontrivial_nodiscard
     write_spec_literal_index)
 
 function(add_formatted_error_tests)
