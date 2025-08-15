@@ -292,4 +292,9 @@ using all_fields_t = boost::mp11::mp_back<boost::mp11::mp_iterate<
 
 struct blocking;
 struct non_blocking;
+
+struct enable_t {};
+constexpr auto enable = enable_t{};
+struct disable_t {};
+constexpr auto disable = disable_t{};
 } // namespace groov

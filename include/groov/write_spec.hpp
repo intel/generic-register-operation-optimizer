@@ -86,6 +86,46 @@ template <typename R, typename F> struct field_proxy {
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members)
     R &r;
 };
+
+template <stdx::has_trait<std::is_enum> E>
+constexpr static auto enable_value() {
+    static_assert(stdx::always_false_v<E>,
+                  "Enum doesn't contain an ENABLE value");
+}
+
+template <stdx::has_trait<std::is_enum> E>
+    requires requires { E::ENABLE; }
+constexpr static auto enable_value() {
+    return E::ENABLE;
+}
+
+template <stdx::has_trait<std::is_enum> E>
+constexpr static auto disable_value() {
+    static_assert(stdx::always_false_v<E>,
+                  "Enum doesn't contain an DISABLE value");
+}
+
+template <stdx::has_trait<std::is_enum> E>
+    requires requires { E::DISABLE; }
+constexpr static auto disable_value() {
+    return E::DISABLE;
+}
+
+template <typename T, typename V> constexpr auto convert_value(V const &v) {
+    if constexpr (std::is_same_v<V, enable_t>) {
+        static_assert(std::is_enum_v<T>,
+                      "enable can only be used with enumeration fields that "
+                      "contain an ENABLE value");
+        return enable_value<T>();
+    } else if constexpr (std::is_same_v<V, disable_t>) {
+        static_assert(std::is_enum_v<T>,
+                      "disable can only be used with enumeration fields that "
+                      "contain a DISABLE value");
+        return disable_value<T>();
+    } else {
+        return static_cast<T>(v);
+    }
+}
 } // namespace detail
 
 template <typename Group, typename Paths, typename Value>
@@ -180,7 +220,9 @@ constexpr auto to_write_spec(read_spec<Group, Paths>, Ps const &...ps) {
             using R = boost::mp11::mp_first<matches>;
             auto &dest_reg = stdx::get<R>(values);
             using F = resolve_t<R, typename P::path_t>;
-            F::insert(dest_reg.value, static_cast<typename F::type_t>(p.value));
+
+            F::insert(dest_reg.value,
+                      detail::convert_value<typename F::type_t>(p.value));
         };
     (insert(ps, w.value), ...);
     return w;
