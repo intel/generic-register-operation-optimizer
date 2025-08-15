@@ -16,6 +16,46 @@ namespace groov {
 namespace detail {
 struct no_extract_type {};
 
+template <stdx::has_trait<std::is_enum> E>
+constexpr static auto enable_value() {
+    static_assert(stdx::always_false_v<E>,
+                  "Enum doesn't contain an ENABLE value");
+}
+
+template <stdx::has_trait<std::is_enum> E>
+    requires requires { E::ENABLE; }
+constexpr static auto enable_value() {
+    return E::ENABLE;
+}
+
+template <stdx::has_trait<std::is_enum> E>
+constexpr static auto disable_value() {
+    static_assert(stdx::always_false_v<E>,
+                  "Enum doesn't contain an DISABLE value");
+}
+
+template <stdx::has_trait<std::is_enum> E>
+    requires requires { E::DISABLE; }
+constexpr static auto disable_value() {
+    return E::DISABLE;
+}
+
+template <typename T, typename V> constexpr auto convert_value(V const &v) {
+    if constexpr (std::is_same_v<V, enable_t>) {
+        static_assert(std::is_enum_v<T>,
+                      "enable can only be used with enumeration fields that "
+                      "contain an ENABLE value");
+        return enable_value<T>();
+    } else if constexpr (std::is_same_v<V, disable_t>) {
+        static_assert(std::is_enum_v<T>,
+                      "disable can only be used with enumeration fields that "
+                      "contain a DISABLE value");
+        return disable_value<T>();
+    } else {
+        return static_cast<T>(v);
+    }
+}
+
 template <typename M1, typename M2>
 using mask_overlap =
     std::integral_constant<std::remove_cvref_t<decltype(M1::value)>,
@@ -35,6 +75,20 @@ template <typename R, typename F> struct field_proxy {
     // NOLINTNEXTLINE(misc-unconventional-assign-operator)
     constexpr auto operator=(type_t v) const && -> void {
         F::insert(r.value, v);
+    }
+
+    // NOLINTNEXTLINE(misc-unconventional-assign-operator)
+    constexpr auto operator=(enable_t) const && -> void
+        requires stdx::has_trait<type_t, std::is_enum>
+    {
+        F::insert(r.value, enable_value<type_t>());
+    }
+
+    // NOLINTNEXTLINE(misc-unconventional-assign-operator)
+    constexpr auto operator=(disable_t) const && -> void
+        requires stdx::has_trait<type_t, std::is_enum>
+    {
+        F::insert(r.value, disable_value<type_t>());
     }
 
     constexpr auto operator+=(type_t v) const && -> void {
@@ -86,46 +140,6 @@ template <typename R, typename F> struct field_proxy {
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members)
     R &r;
 };
-
-template <stdx::has_trait<std::is_enum> E>
-constexpr static auto enable_value() {
-    static_assert(stdx::always_false_v<E>,
-                  "Enum doesn't contain an ENABLE value");
-}
-
-template <stdx::has_trait<std::is_enum> E>
-    requires requires { E::ENABLE; }
-constexpr static auto enable_value() {
-    return E::ENABLE;
-}
-
-template <stdx::has_trait<std::is_enum> E>
-constexpr static auto disable_value() {
-    static_assert(stdx::always_false_v<E>,
-                  "Enum doesn't contain an DISABLE value");
-}
-
-template <stdx::has_trait<std::is_enum> E>
-    requires requires { E::DISABLE; }
-constexpr static auto disable_value() {
-    return E::DISABLE;
-}
-
-template <typename T, typename V> constexpr auto convert_value(V const &v) {
-    if constexpr (std::is_same_v<V, enable_t>) {
-        static_assert(std::is_enum_v<T>,
-                      "enable can only be used with enumeration fields that "
-                      "contain an ENABLE value");
-        return enable_value<T>();
-    } else if constexpr (std::is_same_v<V, disable_t>) {
-        static_assert(std::is_enum_v<T>,
-                      "disable can only be used with enumeration fields that "
-                      "contain a DISABLE value");
-        return disable_value<T>();
-    } else {
-        return static_cast<T>(v);
-    }
-}
 } // namespace detail
 
 template <typename Group, typename Paths, typename Value>

@@ -282,3 +282,33 @@ TEST_CASE("disable an enum field", "[write]") {
     CHECK(sync_write(grp_enum_enable("reg.field"_f = groov::disable)));
     CHECK(data_enum == 0u);
 }
+
+TEST_CASE("enable with field_proxy", "[write]") {
+    using namespace groov::literals;
+    data_enum = 0u;
+    auto r = async::just(grp_enum_enable / "reg"_r) //
+             | groov::read()                        //
+             | async::then([](auto spec) {
+                   spec["reg.field"_r] = groov::enable;
+                   return spec;
+               })             //
+             | groov::write() //
+             | async::sync_wait();
+    CHECK(r);
+    CHECK(data_enum == 0b1u);
+}
+
+TEST_CASE("disable with field_proxy", "[write]") {
+    using namespace groov::literals;
+    data_enum = 1u;
+    auto r = async::just(grp_enum_enable / "reg"_r) //
+             | groov::read()                        //
+             | async::then([](auto spec) {
+                   spec["reg.field"_r] = groov::disable;
+                   return spec;
+               })             //
+             | groov::write() //
+             | async::sync_wait();
+    CHECK(r);
+    CHECK(data_enum == 0u);
+}
