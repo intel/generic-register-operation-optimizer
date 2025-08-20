@@ -12,11 +12,17 @@
 #include <async/then.hpp>
 #include <async/when_all.hpp>
 
+#include <stdx/optional.hpp>
 #include <stdx/tuple_algorithms.hpp>
 #include <stdx/type_traits.hpp>
+#include <stdx/utility.hpp>
 
 #include <boost/mp11/algorithm.hpp>
 #include <boost/mp11/list.hpp>
+
+#include <optional>
+#include <type_traits>
+#include <utility>
 
 namespace groov {
 namespace detail {
@@ -40,9 +46,15 @@ constexpr auto read(read_spec<Group, Paths> const &s) -> async::sender auto {
     return []<typename... Rs, typename... Ms>(boost::mp11::mp_list<Rs...>,
                                               boost::mp11::mp_list<Ms...>) {
         return async::when_all(detail::read<Rs, Group, Ms>()...) |
-               async::then([](typename Rs::type_t... values) {
-                   return Spec{{}, {Rs{{}, values}...}};
-               });
+               async::then(stdx::overload{
+                   [](typename Rs::type_t... values) {
+                       return Spec{{}, {Rs{{}, values}...}};
+                   },
+                   [](std::optional<typename Rs::type_t>... values) {
+                       return stdx::transform(
+                           [](auto... vs) { return Spec{{}, {Rs{{}, vs}...}}; },
+                           values...);
+                   }});
     }(register_values_t{}, field_masks_t{});
 }
 
