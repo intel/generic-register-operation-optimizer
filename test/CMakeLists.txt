@@ -20,6 +20,7 @@ add_tests(
     path
     read
     read_spec
+    test
     test_bus
     value_path
     write

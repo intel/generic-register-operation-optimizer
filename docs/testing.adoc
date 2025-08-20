@@ -1,0 +1,390 @@
+
+== Testing
+
+Register definitions are often difficult to handle in testing. They can map
+to fixed memory addresses or represent special hardware capabilities that are
+not available on the test target.
+
+`groov` provides facilities to aid with testing.
+
+=== Injecting a Test Bus
+
+`groov` allows a test bus to be injected for a `groov::group`. The
+`groov::group` associates a bus with a set of registers. For example:
+
+[source,cpp]
+----
+using g0 =
+  groov::group<
+    "some_group", groov::mmio_bus<>,
+    reg0, reg1, reg2
+  >;
+----
+
+`g0` describes a group consisting of `reg0`, `reg1`, and `reg2` that will
+all use the `groov::mmio_bus`.
+
+We can tell `groov` that `"some_group"` should use our `testing_bus`
+instead. To do so, we:
+
+- Include the `groov/test.hpp` file before any other `groov` header.
+- Specify the `test_bus_list` before including any other `groov` header.
+- Provide the test bus implementation
+
+For example, our test_thing.cpp file might start like this:
+
+[source,cpp]
+----
+#incldue <groov/test.hpp>
+
+namespace groov::test {
+using test_bus_list =
+    make_test_bus_list<
+        test_bus<"some_group", testing_bus>
+    >;
+}
+
+// ... continue with includes
+----
+
+The code snippet will inject `testing_bus` for `"some_group"`
+instead of of the bus that was specified in the group's definition.
+We can implement `testing_bus` however we wish to provide the `read`
+and `write` functions that will faciliate our testing.
+
+=== Default Test Bus
+
+`groov` provides a test bus that offers common capabilities. You can
+specify use of the default test bus as follows:
+
+[source,cpp]
+----
+#incldue <groov/test.hpp>
+
+namespace groov::test {
+using test_bus_list =
+    make_test_bus_list<
+        default_test_bus<"some_group">,
+        test_bus<"my_group", my_bus>
+    >;
+}
+
+// ... continue with includes
+----
+
+In the above example, `groov` will inject the default test bus for
+`"some_group"` and `my_bus` for `"my_group"`.
+
+The default test bus is backed by a unique store for each group. The
+store provides functions to read and write register values, reset the store,
+and set functions to handle read or write register access.
+
+The default test bus will perform normal read-modify-write actions on the store. Reads of a non-initialized register in the store will return a disengaged `optional`. As such, the sender read will return an `optional<read_spec>`.
+
+This can be undesirable if the `groov::group` that has an injected test bus is being used by other components in your test. The signature will change from a `read_spec` to an `optional<read_spec>`. How the default test bus handles `optional` read values is controlled by a policy. The default policy is:
+
+[source,cpp]
+----
+namespace groov::test {
+struct optional_policy {
+    template <auto> auto operator()(auto, auto value) { return value; }
+};
+}
+----
+
+You can provide your own policy where the interface is:
+
+[source,cpp]
+----
+struct my_policy {
+    template <auto Mask> auto operator()(auto addr, auto value) {
+        // Mask is the read mask
+        // addr is the address being read
+        // value is an std::optional<T> and T is the register value type.
+        return /* return whatever for your signature */
+    }
+};
+----
+
+If you want to throw on a read of an unitialized register you could:
+
+[source,cpp]
+----
+#incldue <groov/test.hpp>
+
+struct my_throw_policy {
+    template <auto> auto operator()(auto addr, auto value) {
+        if (not value) { throw addr; }
+        return *value;
+    }
+};
+
+namespace groov::test {
+using test_bus_list =
+    make_test_bus_list<
+        test_bus<"some_group", groov::test::bus<"some_group", my_thow_policy>
+    >;
+}
+----
+
+=== The Store
+
+The simplest way to interact with the store is via functions that take
+the `groov::group` as an argument. This enables an interface that uses
+the same path-like mechanisms to specify a register as normal `groov`
+interactions.
+
+Given,
+
+[source,cpp]
+----
+using reg0 = groov::reg<"reg0", std::uint32_t, ADD0, groov::w::replace, field0, field1>;
+using reg1 = groov::reg<"reg1", std::uint32_t, ADD1, groov::w::replace, field0, field1>;
+using reg2 = groov::reg<"reg2", std::uint32_t, ADD2, groov::w::replace, field0, field1>;
+
+using G0 =
+  groov::group<
+    "some_group", groov::mmio_bus<>,
+    reg0, reg1, reg2
+  >;
+constexpr auto grp0 = G0{};
+----
+    
+=== `reset_store`
+
+Resets the store to an empty state.
+
+[source,cpp]
+----
+template <typename Group>
+groov::test::reset_store();
+
+template <typename Group>
+groov::test::reset_store(Group);
+----
+
+
+.Example
+====
+[source,cpp]
+----
+groov::test::reset_store<G0>();
+// or
+groov::test::reset_store(grp0);
+----
+====
+
+
+=== `set_value`
+
+Set the value in the store for the specified register. The register is specified via a path. The value will be cast to the register's value type when it is stored.
+
+[source,cpp]
+----
+template <typename Group, pathlike P, typename V>
+void groov::test::set_value(P path, V value);
+
+template <typename Group, pathlike P, typename V>
+void groov::test::set_value(Group, P path, V value);
+----
+
+
+.Example
+====
+[source,cpp]
+----
+groov::test::set_value<G0>("reg1"_r, 0xdeadbeef);
+// or
+groov::test::set_value(grp0, "reg1"_r, 0xdeadbeef);
+----
+====
+
+
+=== `get_value`
+
+Get the value in the store for the specified register. The register is specified via a path.  The value will be returned as an `std::optional<T>` where `T` is the register's value type.
+
+If no value has been set in the store for the specified register path, the returned `optional` will be disengaged.
+
+[source,cpp]
+----
+template <typename Group, pathlike P>
+auto groov::test::get_value(P path) -> std::optional<register-type>;
+
+template <typename Group, pathlike P>
+auto groov::test::get_value(Group, P path) -> std::optional<register-type>;
+----
+
+
+.Example
+====
+[source,cpp]
+----
+auto v = groov::test::get_value<G0>("reg1"_r);
+// or
+auto v = groov::test::get_value(grp0, "reg1"_r);
+----
+====
+
+
+=== `set_write_function`
+
+If a write function is set in the store for a specific register, it will be called
+for each write access to that register. The write function's signature is:
+
+`void(_unspecified-type-erased_  address ,_unspecified-type-erased_  value)`
+
+where _unspecified-type-erased_ is a type-erased type that provides the following
+interface:
+
+[source,cpp]
+----
+struct _unspecified-type-erased_ {
+    template <typename T> auto get() const -> std::optional<T>;
+};
+----
+
+If the object contains a value of type `T` an engaged `optional` with the value is returned, otherwise a disengaged `optional` is returned.
+
+A helper function is provided to reduce syntactic noise. The helper is found via ADL.
+
+[source,cpp]
+----
+template <typename T> auto get(_unspecified-type-erased_ v) -> std::optional<T>;
+----
+
+Both the _address_ and the _value_ are passed to the write function as type-erased values. The _address_ type should be the type of the register's address and the _value_ type should be the type of the register's value; each described in the `groov::reg` definition.
+
+[source,cpp]
+----
+template <typename Group, pathlike P, typename F>
+void set_write_function(P p, F &&f);
+
+template <typename Group, pathlike P, typename F>
+void set_write_function(Group, P p, F &&f);
+----
+
+The following example stores the last address and value written in variables captured by the lambda and increments a counter.
+
+.Example
+====
+[source,cpp]
+----
+int write_call_count = 0;
+void *write_addr = 0;
+std::uint32_t write_value = 0;
+
+groov::test::set_write_function<G0>("reg0"_r,
+    [&](auto addr, auto value) {
+        ++write_call_count;
+        write_addr = get<std::uint32_t *>(addr).value_or(nullptr);
+        write_value = get<std::uint32_t>(value).value_or(0);
+    });
+----
+====
+
+
+NOTE: If a write function is set, no value will be stored within the store on write. A subsequent read with no read function set will result in a disengaged `optional` or a value that was set prior to providing the write function.
+
+
+=== `set_read_function`
+
+If a read function is set in the store for a specific register, it will be called
+for each read access to that register. The read function's signature is:
+
+`_unspecified-type-erased_(_unspecified-type-erased_  address)`
+
+where _unspecified-type-erased_ is a type-erased type that provides the following
+interface:
+
+[source,cpp]
+----
+struct _unspecified-type-erased_ {
+    template <typename T> auto get() const -> std::optional<T>;
+};
+----
+
+If the object contains a value of type `T` an engaged `optional` with the value is returned, otherwise a disengaged `optional` is returned.
+
+A helper function is provided to reduce syntactic noise. The helper is found via ADL.
+
+[source,cpp]
+----
+template <typename T> auto get(_unspecified-type-erased_ v) -> std::optional<T>;
+----
+
+The _address_ is passed to the read function in a type-erased value. The wrapped address type is the register's address type. The read function's returned value type should be the register's value type. The register's address and value types are each described in the `groov::reg` defintion.
+
+[source,cpp]
+----
+template <typename Group, pathlike P, typename F>
+void set_read_function(P p, F &&f);
+
+template <typename Group, pathlike P, typename F>
+void set_read_function(Group, P p, F &&f);
+----
+
+The following example stores the last read address and increments a counter. It always returns `0xbabeface`.
+
+.Example
+====
+[source,cpp]
+----
+int read_call_count = 0;
+void *read_addr = 0;
+
+groov::test::set_read_function<G0>("reg0"_r,
+    [&](auto addr) {
+        ++read_call_count;
+        read_addr = get<std::uint32_t *>(addr).value_or(nullptr);
+        return 0xbabeface;
+    });
+----
+====
+
+
+=== Accessing the store
+
+NOTE: The helper functions above are more ergonomic. If you know the group type or have access to a group instance, consider using those methods.
+
+Sometimes it is not possible to get the `groov::group` type or instance directly. The group might be sandwiched between layers that you are testing against. In these situations the bus is easily injected based on having the "name" of the group and the store must be accessed the same way.
+
+The store is a little more difficult to work with directly because all values are _unspecified_type_erased_ as described above for the read/write functions.
+
+The direct store interface is:
+
+[source,cpp]
+----
+namespace groov::test {
+
+template <stdx::ct_string Group>
+struct store {
+public:
+    // Reset (clear) the store for the group.
+    inline static void reset();
+
+    // Set the value in the group's store at the specified address.
+    // Addresses access entire registers so value represents the entire register.
+    // If there is a write function set, it will be called.
+    static void set_value(unspecified-type-erased addr, unspecified-type-erased value);
+
+    // Get the value in the group's store at the specified address.
+    // Addresses access entire registers so the returned value represents
+    // the entire register.
+    // If there is a read function set, it will be called.
+    static auto get_value(unspecified-type-erased addr) -> unspecified-type-erased;
+
+    // Set a function to be called when the specified address is written
+    // to in the group's store. The function has a signature of
+    // void(address_t, value_t)
+    template <typename F>
+    static void set_write_function(unspecified-type-erased addr, F && f);
+
+    // Set a function to be called when the specified address is read
+    // in the group's store. The function has a signature of
+    // value_t(address_t)
+    template <typename F>
+    static void set_read_function(unspecified-type-erased addr, F && f);
+};
+}
+----
