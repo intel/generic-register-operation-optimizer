@@ -97,18 +97,21 @@ template <stdx::ct_string Name, typename T, std::size_t Msb, std::size_t Lsb,
 struct field : named_container<Name, SubFields...> {
     using type_t = T;
     using write_fn_t = WriteFn;
-    using id_spec_t = typename write_fn_t::id_spec;
 
     template <std::unsigned_integral RegType>
     constexpr static auto mask = stdx::bit_mask<RegType, Msb, Lsb>();
 
-    template <std::unsigned_integral RegType>
-    constexpr static auto identity_mask =
-        detail::compute_identity_mask<id_spec_t, RegType, Msb, Lsb>();
+    constexpr static auto field_mask = static_cast<type_t>(
+        stdx::bit_mask<stdx::underlying_type_t<type_t>, Msb - Lsb>());
 
     template <std::unsigned_integral RegType>
-    constexpr static auto identity =
-        detail::compute_identity<id_spec_t, RegType, identity_mask<RegType>>();
+    constexpr static auto identity_mask =
+        detail::compute_identity_mask<write_fn_t, RegType, Msb, Lsb>();
+
+    template <std::unsigned_integral RegType>
+    constexpr static auto identity_value =
+        detail::compute_identity_value<write_fn_t, RegType,
+                                       identity_mask<RegType>>();
 
     template <std::unsigned_integral RegType>
     constexpr static auto extract(RegType value) -> type_t {
@@ -147,11 +150,11 @@ struct reg : field<Name, T, std::numeric_limits<T>::digits - 1, 0u, WriteFn,
     constexpr static auto address = Address;
 
     constexpr static T unused_mask =
-        identity_spec<typename reg::id_spec_t>
+        identity_write_function<WriteFn>
             ? reg::template mask<T> & ~(T{} | ... | Fields::template mask<T>)
             : T{};
-    constexpr static auto unused_identity =
-        detail::compute_identity<typename reg::id_spec_t, T, unused_mask>();
+    constexpr static auto unused_identity_value =
+        detail::compute_identity_value<WriteFn, T, unused_mask>();
 
     template <std::same_as<T> RegType>
     constexpr static auto extract(RegType value) {
@@ -269,9 +272,9 @@ template <typename Reg> struct id_mask_q {
 
 template <typename Reg> struct id_value_q {
     template <typename Obj>
-    using fn =
-        std::integral_constant<typename Reg::type_t,
-                               Obj::template identity<typename Reg::type_t>>;
+    using fn = std::integral_constant<
+        typename Reg::type_t,
+        Obj::template identity_value<typename Reg::type_t>>;
 };
 
 template <typename ObjList, template <typename...> typename QFn, typename Reg>
@@ -312,4 +315,8 @@ struct enable_t {};
 constexpr auto enable = enable_t{};
 struct disable_t {};
 constexpr auto disable = disable_t{};
+struct set_t {};
+constexpr auto set = set_t{};
+struct clear_t {};
+constexpr auto clear = clear_t{};
 } // namespace groov

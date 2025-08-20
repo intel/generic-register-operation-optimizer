@@ -39,8 +39,7 @@ struct bus {
 
 struct custom_field_func {
     struct id_spec {
-        template <auto Mask>
-        constexpr static auto identity() -> decltype(Mask) {
+        template <auto Mask> constexpr static auto mask() -> decltype(Mask) {
             static_assert(Mask == stdx::bit_mask<std::uint8_t, 7, 2>());
             return 0b0110'0000u;
         }

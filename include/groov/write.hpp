@@ -45,7 +45,7 @@ using compute_reg_id_mask_t =
 
 template <typename Reg>
 using compute_reg_id_value_t =
-    std::integral_constant<typename Reg::type_t, Reg::unused_identity>;
+    std::integral_constant<typename Reg::type_t, Reg::unused_identity_value>;
 
 template <typename F> CONSTEVAL auto check_readonly_field() {
     STATIC_ASSERT(not read_only_write_function<typename F::write_fn_t>,

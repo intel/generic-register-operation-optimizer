@@ -81,6 +81,20 @@ TEST_CASE("write a field", "[write]") {
     CHECK(data0 == 0b1'0001'1u);
 }
 
+TEST_CASE("set a field", "[write]") {
+    using namespace groov::literals;
+    data0 = 0u;
+    CHECK(sync_write(grp("reg0.field1"_f = groov::set)));
+    CHECK(data0 == 0b1111'0u);
+}
+
+TEST_CASE("clear a field", "[write]") {
+    using namespace groov::literals;
+    data0 = 0b1'1111'1u;
+    CHECK(sync_write(grp("reg0.field1"_f = groov::clear)));
+    CHECK(data0 == 0b1'0000'1u);
+}
+
 TEST_CASE("write multiple fields to the same register", "[write]") {
     using namespace groov::literals;
     data0 = 0b1'1010'0u;
@@ -223,7 +237,7 @@ TEST_CASE("write a std::uint8_t register", "[write]") {
 namespace {
 std::uint32_t data2{};
 struct custom_write_fn {
-    using id_spec = groov::id::one;
+    using id_spec = groov::m::one;
 };
 
 using R_partial =
@@ -256,6 +270,20 @@ TEST_CASE("write an enum field", "[write]") {
     data_enum = 0u;
     CHECK(sync_write(grp_enum("reg.field"_f = E::C)));
     CHECK(data_enum == 0b10u);
+}
+
+TEST_CASE("set an enum field", "[write]") {
+    using namespace groov::literals;
+    data_enum = 0u;
+    CHECK(sync_write(grp_enum("reg.field"_f = groov::set)));
+    CHECK(data_enum == 0b11u);
+}
+
+TEST_CASE("clear an enum field", "[write]") {
+    using namespace groov::literals;
+    data_enum = 0b11u;
+    CHECK(sync_write(grp_enum("reg.field"_f = groov::clear)));
+    CHECK(data_enum == 0u);
 }
 
 namespace {
@@ -324,4 +352,34 @@ TEST_CASE("write a register with address function", "[write]") {
     using namespace groov::literals;
     CHECK(sync_write(g("reg"_r = 0xa5a5'a5a5u)));
     CHECK(data_fn == 0xa5a5'a5a5u);
+}
+
+TEST_CASE("set with field_proxy", "[write]") {
+    using namespace groov::literals;
+    data0 = 0u;
+    auto r = async::just(grp / "reg0"_r) //
+             | groov::read()             //
+             | async::then([](auto spec) {
+                   spec["reg0.field1"_r] = groov::set;
+                   return spec;
+               })             //
+             | groov::write() //
+             | async::sync_wait();
+    CHECK(r);
+    CHECK(data0 == 0b1111'0u);
+}
+
+TEST_CASE("clear with field_proxy", "[write]") {
+    using namespace groov::literals;
+    data0 = 0b1'1111'1u;
+    auto r = async::just(grp / "reg0"_r) //
+             | groov::read()             //
+             | async::then([](auto spec) {
+                   spec["reg0.field1"_r] = groov::clear;
+                   return spec;
+               })             //
+             | groov::write() //
+             | async::sync_wait();
+    CHECK(r);
+    CHECK(data0 == 0b1'0000'1u);
 }
