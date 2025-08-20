@@ -5,5 +5,6 @@
 #include <groov/path.hpp>
 #include <groov/read.hpp>
 #include <groov/read_spec.hpp>
+#include <groov/value_path.hpp>
 #include <groov/write.hpp>
 #include <groov/write_spec.hpp>

@@ -20,6 +20,7 @@ add_tests(
     path
     read
     read_spec
+    test
     value_path
     write
     write_functions
