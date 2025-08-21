@@ -126,11 +126,24 @@ struct field : named_container<Name, SubFields...> {
     }
 };
 
+namespace detail {
+template <typename T> constexpr auto maybe_invoke(T value) {
+    if constexpr (requires { value(); } and not requires { T::value; }) {
+        return value();
+    } else {
+        return value;
+    }
+}
+} // namespace detail
+template <typename R> constexpr auto get_address() {
+    return detail::maybe_invoke(R::address);
+}
+
 template <stdx::ct_string Name, std::unsigned_integral T, auto Address,
           write_function WriteFn = w::replace, fieldlike... Fields>
 struct reg : field<Name, T, std::numeric_limits<T>::digits - 1, 0u, WriteFn,
                    Fields...> {
-    using address_t = decltype(Address);
+    using address_t = decltype(detail::maybe_invoke(Address));
     constexpr static auto address = Address;
 
     constexpr static T unused_mask =
@@ -162,15 +175,17 @@ template <typename Reg> struct reg_with_value : Reg {
 template <typename T>
 concept registerlike = fieldlike<T> and requires {
     typename T::address_t;
-    { T::address } -> std::same_as<typename T::address_t const &>;
+    { get_address<T>() } -> std::same_as<typename T::address_t>;
 };
 
 template <typename T, typename Reg>
 concept bus_for = requires(typename Reg::type_t data) {
-    { T::template read<typename Reg::type_t{}>(Reg::address) } -> async::sender;
+    {
+        T::template read<typename Reg::type_t{}>(get_address<Reg>())
+    } -> async::sender;
     {
         T::template write<typename Reg::type_t{}, typename Reg::type_t{},
-                          typename Reg::type_t{}>(Reg::address, data)
+                          typename Reg::type_t{}>(get_address<Reg>(), data)
     } -> async::sender;
 };
 

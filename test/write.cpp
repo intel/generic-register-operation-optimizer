@@ -312,3 +312,16 @@ TEST_CASE("disable with field_proxy", "[write]") {
     CHECK(r);
     CHECK(data_enum == 0u);
 }
+
+namespace {
+std::uint32_t data_fn{};
+}
+
+TEST_CASE("write a register with address function", "[write]") {
+    using R = groov::reg<"reg", std::uint32_t, [] { return &data_fn; }>;
+    constexpr auto g = groov::group<"group", bus, R>{};
+
+    using namespace groov::literals;
+    CHECK(sync_write(g("reg"_r = 0xa5a5'a5a5u)));
+    CHECK(data_fn == 0xa5a5'a5a5u);
+}

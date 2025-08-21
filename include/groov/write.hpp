@@ -18,15 +18,13 @@
 #include <type_traits>
 #include <utility>
 
-template <typename...> struct undef;
-template <auto...> struct undef_v;
-
 namespace groov {
 namespace detail {
 template <typename Register, typename Bus, auto Mask, auto IdMask, auto IdValue,
           typename V>
 auto write(V value) -> async::sender auto {
-    return Bus::template write<Mask, IdMask, IdValue>(Register::address, value);
+    return Bus::template write<Mask, IdMask, IdValue>(get_address<Register>(),
+                                                      value);
 }
 
 template <typename Reg, typename ObjList>
