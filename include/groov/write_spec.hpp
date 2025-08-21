@@ -40,7 +40,8 @@ constexpr static auto disable_value() {
     return E::DISABLE;
 }
 
-template <typename T, typename V> constexpr auto convert_value(V const &v) {
+template <typename F, typename V> constexpr auto convert_value(V const &v) {
+    using T = typename F::type_t;
     if constexpr (std::is_same_v<V, enable_t>) {
         static_assert(std::is_enum_v<T>,
                       "enable can only be used with enumeration fields that "
@@ -51,6 +52,16 @@ template <typename T, typename V> constexpr auto convert_value(V const &v) {
                       "disable can only be used with enumeration fields that "
                       "contain a DISABLE value");
         return disable_value<T>();
+    } else if constexpr (std::is_same_v<V, set_t>) {
+        static_assert(set_write_function<typename F::write_fn_t>,
+                      "set can only be used with fields that "
+                      "have a set_spec in their write function");
+        return F::write_fn_t::set_spec::template mask<F::field_mask>();
+    } else if constexpr (std::is_same_v<V, clear_t>) {
+        static_assert(clear_write_function<typename F::write_fn_t>,
+                      "clear can only be used with fields that "
+                      "have a clear_spec in their write function");
+        return F::write_fn_t::clear_spec::template mask<F::field_mask>();
     } else {
         return static_cast<T>(v);
     }
@@ -89,6 +100,22 @@ template <typename R, typename F> struct field_proxy {
         requires stdx::has_trait<type_t, std::is_enum>
     {
         F::insert(r.value, disable_value<type_t>());
+    }
+
+    // NOLINTNEXTLINE(misc-unconventional-assign-operator)
+    constexpr auto operator=(set_t) const && -> void
+        requires set_write_function<typename F::write_fn_t>
+    {
+        F::insert(r.value,
+                  F::write_fn_t::set_spec::template mask<F::field_mask>());
+    }
+
+    // NOLINTNEXTLINE(misc-unconventional-assign-operator)
+    constexpr auto operator=(clear_t) const && -> void
+        requires clear_write_function<typename F::write_fn_t>
+    {
+        F::insert(r.value,
+                  F::write_fn_t::clear_spec::template mask<F::field_mask>());
     }
 
     constexpr auto operator+=(type_t v) const && -> void {
@@ -235,8 +262,7 @@ constexpr auto to_write_spec(read_spec<Group, Paths>, Ps const &...ps) {
             auto &dest_reg = stdx::get<R>(values);
             using F = resolve_t<R, typename P::path_t>;
 
-            F::insert(dest_reg.value,
-                      detail::convert_value<typename F::type_t>(p.value));
+            F::insert(dest_reg.value, detail::convert_value<F>(p.value));
         };
     (insert(ps, w.value), ...);
     return w;
