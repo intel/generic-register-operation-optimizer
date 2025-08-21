@@ -1,0 +1,120 @@
+
+== Testing
+
+Register definitions often present difficulty in testing. Very often they map
+to fixed memory addresses or represent special hardware capabilities.
+
+`groov` provides facilities to aid with testing.
+
+=== Injecting a Test Bus
+
+The main mechanism allows a test bus to be injected for a `groov::group`. The
+`groov::group` associates a bus with a set of registers. For example:
+
+[source,cpp]
+----
+using g0 =
+  groov::group<
+    "some_group", groov::mmio_bus<>,
+    reg0, reg1, reg2
+  >;
+----
+
+`g0` describes a group consisting of `reg0`, `reg1`, and `reg2` that will
+all use the `groov::mmio_bus` normally.
+
+We can tell `groov` that we would like `"some_group"` to use our `testing_bus`
+instead. To do so, we:
+
+- Include the `groov/test.hpp` file before any other `groov` header.
+- Specify the `test_bus_list` before including any other `groov` header.
+- Provide the test bus implementation
+
+For example, our test_thing.cpp file might start like this:
+
+[source,cpp]
+----
+#incldue <groov/test.hpp>
+
+namespace groov::test {
+using test_bus_list =
+    make_test_bus_list<
+        test_bus<"some_group", testing_bus>
+    >;
+}
+
+// ... continue with includes
+----
+
+The above is specifying that the `"some_group"` group will use the
+type `testing_bus` as its bus instead of whatever is specified in
+the group's definition. We can implement `testing_bus` however
+we wish to provide the `read` and `write` functions that will
+faciliate our testing.
+
+=== Default Test Bus
+
+`groov` provides a test bus that offers common capabilities. You can
+ specify use of the default test bus as follows:
+
+[source,cpp]
+----
+#incldue <groov/test.hpp>
+
+template<>
+struct storage_type<"test_group"> {
+    using type = make_store_type<std::uint32_t, std::uint32_t>;
+};
+
+namespace groov::test {
+using test_bus_list =
+    make_test_bus_list<
+        default_test_bus<"some_group">,
+        test_bus<"my_group", my_bus>
+    >;
+}
+
+// ... continue with includes
+----
+
+In the above example, `groov` will inject the default test bus for
+`"some_group"` and `my_bus` for `"my_group"`.
+
+The default test bus provides the following interface:
+
+
+[source,cpp]
+----
+namespace groov::test {
+
+template <stdx::ct_string Group>
+struct store {
+public:
+    // Reset (clear) the store for the group.
+    inline static void reset();
+
+    // Set the value in the group's store at the specified address.
+    // Addresses access entire registers so value represents the entire register.
+    // If there is a write function set, it will be called.
+    static void set_value(auto addr, auto value);
+
+    // Get the value in the group's store at the specified address.
+    // Addresses access entire registers so the returned value represents
+    // the entire register.
+    // If there is a read function set, it will be called.
+    static auto get_value(auto addr);
+
+    // Set a function to be called when the specified address is written
+    // to in the group's store. The function has a signature of
+    // void(address_t, value_t)
+    template <typename F>
+    static auto set_write_function(auto addr, F && f);
+
+    // Set a function to be called when the specified address is read
+    // in the group's store. The function has a signature of
+    // value_t(address_t)
+    template <typename F>
+    static auto set_read_function(auto addr, F && f);
+};
+
+----

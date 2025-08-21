@@ -9,6 +9,7 @@
 #include <stdx/bit.hpp>
 #include <stdx/ct_string.hpp>
 #include <stdx/type_traits.hpp>
+#include <stdx/utility.hpp>
 
 #include <boost/mp11/algorithm.hpp>
 #include <boost/mp11/list.hpp>
@@ -19,6 +20,17 @@
 #include <iterator>
 #include <limits>
 #include <type_traits>
+
+#ifndef ENABLE_GROOV_TEST
+namespace groov::test {
+using test_bus_list = stdx::type_map<>;
+}
+#endif
+
+namespace groov::detail {
+template <stdx::ct_string Name, typename T>
+using get_bus = stdx::type_lookup_t<test::test_bus_list, stdx::cts_t<Name>, T>;
+}
 
 namespace groov {
 namespace detail {
@@ -195,7 +207,7 @@ concept bus_for = requires(typename Reg::type_t data) {
 template <stdx::ct_string Name, typename Bus, registerlike... Registers>
     requires(... and bus_for<Bus, Registers>)
 struct group : named_container<Name, Registers...> {
-    using bus_t = Bus;
+    using bus_t = detail::get_bus<Name, Bus>;
 
     template <pathlike P> constexpr static auto resolve(P p) {
         return detail::recursive_resolve<group>(p);
