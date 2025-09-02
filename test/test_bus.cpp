@@ -12,28 +12,28 @@
 #include <catch2/catch_test_macros.hpp>
 
 TEST_CASE("value get (correct type)", "[test_bus]") {
-    groov::test::value v{42};
+    groov::test::detail::value v{42};
     auto o = v.get<int>();
     REQUIRE(o);
     CHECK(*o == 42);
 }
 
 TEST_CASE("value get (wrong type)", "[test_bus]") {
-    groov::test::value v{42};
+    groov::test::detail::value v{42};
     auto o = v.get<bool>();
     CHECK(not o);
 }
 
 TEST_CASE("value equality", "[test_bus]") {
-    groov::test::value v{42};
-    CHECK(v == groov::test::value{42});
-    CHECK(v != groov::test::value{17});
-    CHECK(v != groov::test::value{true});
+    groov::test::detail::value v{42};
+    CHECK(v == groov::test::detail::value{42});
+    CHECK(v != groov::test::detail::value{17});
+    CHECK(v != groov::test::detail::value{true});
 }
 
 TEST_CASE("test bus read (X-value)", "[test_bus]") {
-    groov::test::bus<>::reset();
-    groov::test::bus<> b{};
+    groov::test::store<"test">::reset();
+    groov::test::bus<"test"> b{};
     auto r = b.read<1>(1) | async::sync_wait();
     REQUIRE(r);
     CHECK(not get<0>(*r));
@@ -46,8 +46,8 @@ TEST_CASE("test bus read with alternate XPolicy", "[test_bus]") {
         }
         return value;
     });
-    groov::test::bus<P>::reset();
-    groov::test::bus<P> b{};
+    groov::test::store<"test">::reset();
+    groov::test::bus<"test", P> b{};
     try {
         [[maybe_unused]] auto r = b.read<1>(1) | async::sync_wait();
     } catch (int &addr) {
@@ -56,15 +56,15 @@ TEST_CASE("test bus read with alternate XPolicy", "[test_bus]") {
 }
 
 TEST_CASE("test bus write", "[test_bus]") {
-    groov::test::bus<>::reset();
-    groov::test::bus<> b{};
+    groov::test::store<"test">::reset();
+    groov::test::bus<"test"> b{};
     auto r = b.write<1, 0, 0>(1, 42) | async::sync_wait();
     REQUIRE(r);
 }
 
 TEST_CASE("test bus write and read back", "[test_bus]") {
-    groov::test::bus<>::reset();
-    groov::test::bus<> b{};
+    groov::test::store<"test">::reset();
+    groov::test::bus<"test"> b{};
     REQUIRE(b.write<1, 0, 0>(1, 42) | async::sync_wait());
     auto r = b.read<1>(1) | async::sync_wait();
     REQUIRE(r);
@@ -75,13 +75,13 @@ TEST_CASE("test bus write and read back", "[test_bus]") {
 
 namespace {
 using R = groov::reg<"reg", std::uint32_t, 0xcafe, groov::w::replace>;
-using G = groov::group<"group", groov::test::bus<>, R>;
+using G = groov::group<"group", groov::test::bus<"test">, R>;
 constexpr auto grp = G{};
 } // namespace
 
 TEST_CASE("write then read back", "[test_bus]") {
     using namespace groov::literals;
-    groov::test::bus<>::reset();
+    groov::test::store<"test">::reset();
 
     CHECK(sync_write(grp("reg"_r = 0xa5a5'a5a5u)));
     auto r = sync_read(grp / "reg"_r);
@@ -91,7 +91,7 @@ TEST_CASE("write then read back", "[test_bus]") {
 
 TEST_CASE("read-modify-write", "[test_bus]") {
     using namespace groov::literals;
-    groov::test::bus<>::reset();
+    groov::test::store<"test">::reset();
 
     CHECK(sync_write(grp("reg"_r = 0xa5a5'a5a5u)));
     auto rmw = async::just(grp / "reg"_r) //

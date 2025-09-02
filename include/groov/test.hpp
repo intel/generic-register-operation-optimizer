@@ -1,14 +1,21 @@
 #pragma once
 
+#define ENABLE_GROOV_TEST
+
+#include <groov/resolve.hpp>
+
 #include <async/concepts.hpp>
 #include <async/just_result_of.hpp>
 
+#include <stdx/ct_string.hpp>
+#include <stdx/optional.hpp>
+
 #include <memory>
-#include <optional>
 #include <unordered_map>
 
 namespace groov {
 namespace test {
+namespace detail {
 template <typename T> constexpr int type_id_{};
 template <typename T> constexpr void const *type_id = &type_id_<T>;
 
@@ -57,33 +64,143 @@ struct value {
 
     std::unique_ptr<base> p{};
 };
+
+template <typename T> auto get(value const &v) -> std::optional<T> {
+    return v.template get<T>();
+}
+} // namespace detail
 } // namespace test
 } // namespace groov
 
-template <> struct std::hash<groov::test::value> {
-    auto operator()(groov::test::value const &v) const -> std::size_t {
+template <> struct std::hash<groov::test::detail::value> {
+    auto operator()(groov::test::detail::value const &v) const -> std::size_t {
         return v.hash();
     }
 };
 
 namespace groov {
 namespace test {
+
+template <stdx::ct_string Group> struct store {
+    static auto reset() { state.clear(); }
+
+    static void set_value(auto addr, auto value) {
+        auto &entry = state[addr];
+        if (entry.write_function) {
+            entry.write_function(addr, value);
+        } else {
+            entry.value = value;
+        }
+    }
+
+    template <typename T> static auto get_value(auto addr) -> std::optional<T> {
+        auto &entry = state[addr];
+        if (entry.read_function) {
+            return entry.read_function(addr).template get<T>();
+        } else {
+            if (entry.value) {
+                return entry.value->template get<T>();
+            } else {
+                return {};
+            }
+        }
+    }
+
+    template <typename F> static auto set_write_function(auto addr, F &&f) {
+        return state[addr].write_function = std::forward<F>(f);
+    }
+
+    template <typename F> static auto set_read_function(auto addr, F &&f) {
+        return state[addr].read_function = std::forward<F>(f);
+    }
+
+  private:
+    struct store_value_t {
+        std::function<void(detail::value, detail::value)> write_function;
+        std::function<detail::value(detail::value)> read_function;
+        std::optional<detail::value> value{};
+    };
+
+    static inline std::unordered_map<detail::value, store_value_t> state{};
+};
+
+namespace detail {
+template <typename T> constexpr auto get_address(T value) {
+    if constexpr (requires { value(); } and not requires { T::value; }) {
+        return value();
+    } else {
+        return value;
+    }
+}
+} // namespace detail
+
+template <typename Group> void reset_store() { store<Group::name>::reset(); }
+
+template <typename Group> void reset_store(Group) { reset_store<Group>(); }
+
+template <typename Group, pathlike P, typename V> void set_value(P p, V value) {
+    using Store = store<Group::name>;
+    using Reg = decltype(Group::resolve(p));
+    using reg_value_t = typename Reg::type_t;
+    auto addr = detail::get_address(Reg::address);
+    Store::set_value(addr, static_cast<reg_value_t>(value));
+}
+
+template <typename Group, pathlike P, typename V>
+void set_value(Group, P p, V value) {
+    set_value<Group>(p, value);
+}
+
+template <typename Group, pathlike P> auto get_value(P p) {
+    using Store = store<Group::name>;
+    using Reg = decltype(Group::resolve(p));
+    using reg_value_t = typename Reg::type_t;
+    auto addr = detail::get_address(Reg::address);
+    return Store::template get_value<reg_value_t>(addr);
+}
+
+template <typename Group, pathlike P> auto get_value(Group, P p) {
+    return get_value<Group>(p);
+}
+
+template <typename Group, pathlike P, typename F>
+void set_write_function(P p, F &&f) {
+    using Store = store<Group::name>;
+    using Reg = decltype(Group::resolve(p));
+    auto addr = detail::get_address(Reg::address);
+    Store::set_write_function(addr, std::forward<F>(f));
+}
+
+template <typename Group, pathlike P, typename F>
+void set_write_function(Group, P p, F &&f) {
+    set_write_function<Group>(p, std::forward<F>(f));
+}
+
+template <typename Group, pathlike P, typename F>
+void set_read_function(P p, F &&f) {
+    using Store = store<Group::name>;
+    using Reg = decltype(Group::resolve(p));
+    auto addr = detail::get_address(Reg::address);
+    Store::set_read_function(addr, std::forward<F>(f));
+}
+
+template <typename Group, pathlike P, typename F>
+void set_read_function(Group, P p, F &&f) {
+    set_read_function<Group>(p, std::forward<F>(f));
+}
+
 struct optional_policy {
     template <auto> auto operator()(auto, auto value) { return value; }
 };
 
-template <typename XPolicy = optional_policy> struct bus {
-    static auto reset() { state.clear(); }
-
+template <stdx::ct_string Group, typename XPolicy = optional_policy>
+struct bus {
     template <auto Mask> static auto read(auto addr) -> async::sender auto {
         using T = decltype(Mask);
         return async::just_result_of([=] {
             return XPolicy{}.template operator()<Mask>(
                 addr, [&]() -> std::optional<T> {
-                    if (auto i = state.find(addr); i != std::cend(state)) {
-                        return i->second.template get<T>();
-                    }
-                    return {};
+                    return store<Group>::template get_value<T>(addr);
                 }());
         });
     }
@@ -95,19 +212,19 @@ template <typename XPolicy = optional_policy> struct bus {
             constexpr T mask = Mask | IdMask;
             T write_bits = val | IdValue;
 
-            auto i = state.find(addr);
-            if (i != std::cend(state)) {
-                auto prev = i->second.template get<T>().value();
-                prev &= ~mask;
-                i->second = prev | write_bits;
-            } else {
-                state.emplace(addr, write_bits);
-            }
+            auto prev = store<Group>::template get_value<T>(addr).value_or(T{});
+            store<Group>::set_value(addr, (prev & ~mask) | write_bits);
         });
     }
-
-  private:
-    static inline std::unordered_map<value, value> state{};
 };
+
+template <stdx::ct_string Group, typename Bus>
+using test_bus = stdx::tt_pair<stdx::cts_t<Group>, Bus>;
+
+template <stdx::ct_string Group>
+using default_test_bus = stdx::tt_pair<stdx::cts_t<Group>, bus<Group>>;
+
+template <typename... T> using make_test_bus_list = stdx::type_map<T...>;
+
 } // namespace test
 } // namespace groov
