@@ -4,12 +4,15 @@
 #include <groov/identity.hpp>
 
 #include <async/concepts.hpp>
+#include <async/just.hpp>
 #include <async/let_value.hpp>
 #include <async/sync_wait.hpp>
 #include <async/when_all.hpp>
 
 #include <stdx/compiler.hpp>
+#include <stdx/concepts.hpp>
 #include <stdx/static_assert.hpp>
+#include <stdx/tuple.hpp>
 #include <stdx/tuple_algorithms.hpp>
 
 #include <boost/mp11/algorithm.hpp>
@@ -59,9 +62,14 @@ template <typename L> CONSTEVAL auto check_read_only() -> void {
         },
         L{});
 }
+
+template <typename T>
+concept write_spec_like =
+    requires { typename std::remove_cvref_t<T>::is_write_spec; };
 } // namespace detail
 
-template <typename Spec> auto write(Spec const &s) -> async::sender auto {
+template <detail::write_spec_like Spec>
+auto write(Spec const &s) -> async::sender auto {
     using fields_per_reg_t = boost::mp11::mp_transform_q<
         detail::fields_for_reg_q<typename Spec::paths_t>,
         typename Spec::value_t>;
@@ -118,20 +126,40 @@ template <typename Spec> auto write(Spec const &s) -> async::sender auto {
         });
 }
 
+template <detail::write_spec_like Spec, typename... Args>
+    requires(sizeof...(Args) > 0)
+auto write(Spec const &s, Args &&...args) -> async::sender auto {
+    return write(s) |
+           async::let_value([... as = std::forward<Args>(args)](auto &&...rs) {
+               return async::just(FWD(rs)..., std::move(as)...);
+           });
+}
+
 namespace _write {
-struct pipeable {
+template <typename... Ts> struct pipeable {
+    stdx::tuple<std::decay_t<Ts>...> passthrough_values{};
+
   private:
-    template <async::sender S>
-    friend constexpr auto operator|(S &&s, pipeable) -> async::sender auto {
+    template <async::sender S, stdx::same_as_unqualified<pipeable> P>
+    friend constexpr auto operator|(S &&s, P &&p) -> async::sender auto {
         return std::forward<S>(s) |
-               async::let_value([=]<typename Spec>(Spec &&spec) {
-                   return write(std::forward<Spec>(spec));
-               });
+               async::let_value(
+                   [values = std::forward<P>(p).passthrough_values]<
+                       detail::write_spec_like Spec>(Spec &&spec) {
+                       return std::move(values).apply([&](auto &&...vs) {
+                           return write(std::forward<Spec>(spec), FWD(vs)...);
+                       });
+                   });
     }
 };
 } // namespace _write
 
-constexpr auto write() { return async::compose(_write::pipeable{}); }
+template <typename... Args>
+    requires(... and (not detail::write_spec_like<Args>))
+constexpr auto write(Args &&...args) {
+    return async::compose(
+        _write::pipeable<Args...>{std::forward<Args>(args)...});
+}
 
 namespace _sync_write {
 template <typename T> struct [[nodiscard]] async_write_result : T {};
@@ -149,22 +177,28 @@ template <typename Behavior, async::sender S> auto wait(S &&s) {
     }
 }
 
-template <typename Behavior> struct pipeable {
+template <typename Behavior, typename... Ts> struct pipeable {
+    stdx::tuple<std::decay_t<Ts>...> passthrough_values{};
+
   private:
-    template <async::sender S>
-    friend constexpr auto operator|(S &&s, pipeable) -> decltype(auto) {
-        return wait<Behavior>(std::forward<S>(s) | write());
+    template <async::sender S, stdx::same_as_unqualified<pipeable> P>
+    friend constexpr auto operator|(S &&s, P &&p) -> decltype(auto) {
+        return wait<Behavior>(
+            std::forward<S>(s) |
+            std::forward<P>(p).passthrough_values.apply(
+                [](auto &&...args) { return write(FWD(args)...); }));
     }
 };
 } // namespace _sync_write
 
-template <typename Behavior = non_blocking, typename T>
-auto sync_write(T const &t) {
-    return _sync_write::wait<Behavior>(write(t));
+template <typename Behavior = non_blocking, typename... Ts>
+auto sync_write(Ts &&...ts) {
+    return _sync_write::wait<Behavior>(write(std::forward<Ts>(ts)...));
 }
 
-template <typename Behavior = non_blocking>
-auto sync_write() -> _sync_write::pipeable<Behavior> {
-    return {};
+template <typename Behavior = non_blocking, typename... Args>
+    requires(... and (not detail::write_spec_like<Args>))
+auto sync_write(Args &&...args) -> _sync_write::pipeable<Behavior, Args...> {
+    return {std::forward<Args>(args)...};
 }
 } // namespace groov
