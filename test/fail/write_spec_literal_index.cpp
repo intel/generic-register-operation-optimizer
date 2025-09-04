@@ -1,3 +1,5 @@
+#include "dummy_bus.hpp"
+
 #include <groov/config.hpp>
 #include <groov/path.hpp>
 #include <groov/resolve.hpp>
@@ -9,25 +11,12 @@
 // EXPECT: Trying to index into a write_spec with a string literal
 
 namespace {
-struct bus {
-    struct sender {
-        using is_sender = void;
-    };
-
-    template <auto> static auto read(auto...) -> async::sender auto {
-        return sender{};
-    }
-    template <auto...> static auto write(auto...) -> async::sender auto {
-        return sender{};
-    }
-};
-
 using F = groov::field<"field", std::uint8_t, 0, 0>;
 
 std::uint32_t data0{};
 using R = groov::reg<"reg", std::uint32_t, &data0, groov::w::replace, F>;
 
-using G = groov::group<"group", bus, R>;
+using G = groov::group<"group", dummy_bus, R>;
 constexpr auto grp = G{};
 } // namespace
 

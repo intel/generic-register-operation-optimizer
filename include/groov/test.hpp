@@ -190,22 +190,25 @@ void set_read_function(Group, P p, F &&f) {
 }
 
 struct optional_policy {
-    template <auto> auto operator()(auto, auto value) { return value; }
+    template <stdx::ct_string, auto> auto operator()(auto, auto value) {
+        return value;
+    }
 };
 
 template <stdx::ct_string Group, typename XPolicy = optional_policy>
 struct bus {
-    template <auto Mask> static auto read(auto addr) -> async::sender auto {
+    template <stdx::ct_string RegName, auto Mask>
+    static auto read(auto addr) -> async::sender auto {
         using T = decltype(Mask);
         return async::just_result_of([=] {
-            return XPolicy{}.template operator()<Mask>(
+            return XPolicy{}.template operator()<RegName, Mask>(
                 addr, [&]() -> std::optional<T> {
                     return store<Group>::template get_value<T>(addr);
                 }());
         });
     }
 
-    template <auto Mask, auto IdMask, auto IdValue>
+    template <stdx::ct_string, auto Mask, auto IdMask, auto IdValue>
     static auto write(auto addr, auto val) -> async::sender auto {
         using T = decltype(Mask);
         return async::just_result_of([=]() -> void {

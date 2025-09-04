@@ -29,7 +29,8 @@ namespace detail {
 template <typename Register, typename Group, typename Mask>
 auto read() -> async::sender auto {
     using bus_t = typename Group::bus_t;
-    return bus_t::template read<Mask::value>(get_address<Register>());
+    return bus_t::template read<Register::name, Mask::value>(
+        get_address<Register>());
 }
 } // namespace detail
 

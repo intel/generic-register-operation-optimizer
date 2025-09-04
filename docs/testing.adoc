@@ -97,7 +97,8 @@ You can provide your own policy where the interface is:
 [source,cpp]
 ----
 struct my_policy {
-    template <auto Mask> auto operator()(auto addr, auto value) {
+    template <stdx::ct_string RegName, auto Mask> auto operator()(auto addr, auto value) {
+        // RegName is the name of the register being read
         // Mask is the read mask
         // addr is the address being read
         // value is an std::optional<T> and T is the register value type.
@@ -113,7 +114,7 @@ If you want to throw on a read of an unitialized register you could:
 #incldue <groov/test.hpp>
 
 struct my_throw_policy {
-    template <auto> auto operator()(auto addr, auto value) {
+    template <stdx::ct_string, auto> auto operator()(auto addr, auto value) {
         if (not value) { throw addr; }
         return *value;
     }

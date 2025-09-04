@@ -17,7 +17,7 @@ namespace {
 struct bus {
     static inline int num_writes{};
 
-    template <auto Mask, auto IdMask, auto IdValue>
+    template <stdx::ct_string, auto Mask, auto IdMask, auto IdValue>
     static auto write(auto addr, auto value) -> async::sender auto {
         return async::just_result_of([=] {
             CHECK(Mask == 0b10);
@@ -32,7 +32,8 @@ struct bus {
         using is_sender = void;
     };
 
-    template <auto> static auto read(auto...) -> async::sender auto {
+    template <stdx::ct_string, auto>
+    static auto read(auto...) -> async::sender auto {
         return sender{};
     }
 };

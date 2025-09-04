@@ -1,3 +1,5 @@
+#include "dummy_bus.hpp"
+
 #include <groov/config.hpp>
 #include <groov/path.hpp>
 #include <groov/read.hpp>
@@ -11,15 +13,10 @@
 // EXPECT: Ambiguous path passed to write_spec
 
 namespace {
-struct bus {
-    struct dummy_sender {
-        using is_sender = void;
-    };
-    template <auto> static auto read(auto...) -> async::sender auto {
+struct read_bus : dummy_bus {
+    template <stdx::ct_string, auto>
+    static auto read(auto...) -> async::sender auto {
         return async::just(42);
-    }
-    template <auto...> static auto write(auto...) -> async::sender auto {
-        return dummy_sender{};
     }
 };
 
@@ -30,7 +27,7 @@ using R0 = groov::reg<"reg0", std::uint32_t, &data0, groov::w::replace, F0>;
 std::uint32_t data1{};
 using R1 = groov::reg<"reg1", std::uint32_t, &data1, groov::w::replace, F0>;
 
-using G = groov::group<"group", bus, R0, R1>;
+using G = groov::group<"group", read_bus, R0, R1>;
 } // namespace
 
 auto main() -> int {

@@ -21,14 +21,15 @@ namespace {
 struct my_test_bus {
     static inline int num_reads{};
     static inline int num_writes{};
-    template <auto Mask> static auto read(auto addr) -> async::sender auto {
+    template <stdx::ct_string, auto Mask>
+    static auto read(auto addr) -> async::sender auto {
         return async::just_result_of([=] {
             ++num_reads;
             return *addr;
         });
     }
 
-    template <auto...>
+    template <stdx::ct_string, auto...>
     static auto write(auto addr, auto value) -> async::sender auto {
         return async::just_result_of([=] {
             ++num_writes;
@@ -40,14 +41,16 @@ struct my_test_bus {
 struct my_bus {
     static inline int num_reads{};
     static inline int num_writes{};
-    template <auto Mask> static auto read(auto addr) -> async::sender auto {
+    template <stdx::ct_string, auto Mask>
+    static auto read(auto addr) -> async::sender auto {
         return async::just_result_of([=] {
             ++num_reads;
             return *addr;
         });
     }
 
-    template <auto...> static auto write(auto...) -> async::sender auto {
+    template <stdx::ct_string, auto...>
+    static auto write(auto...) -> async::sender auto {
         return async::just_result_of([=] { ++num_writes; });
     }
 };

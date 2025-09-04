@@ -34,13 +34,13 @@ TEST_CASE("value equality", "[test_bus]") {
 TEST_CASE("test bus read (X-value)", "[test_bus]") {
     groov::test::store<"test">::reset();
     groov::test::bus<"test"> b{};
-    auto r = b.read<1>(1) | async::sync_wait();
+    auto r = b.read<"", 1>(1) | async::sync_wait();
     REQUIRE(r);
     CHECK(not get<0>(*r));
 }
 
 TEST_CASE("test bus read with alternate XPolicy", "[test_bus]") {
-    using P = decltype([]<auto>(auto addr, auto value) {
+    using P = decltype([]<stdx::ct_string, auto>(auto addr, auto value) {
         if (not value) {
             throw addr;
         }
@@ -49,7 +49,7 @@ TEST_CASE("test bus read with alternate XPolicy", "[test_bus]") {
     groov::test::store<"test">::reset();
     groov::test::bus<"test", P> b{};
     try {
-        [[maybe_unused]] auto r = b.read<1>(1) | async::sync_wait();
+        [[maybe_unused]] auto r = b.read<"", 1>(1) | async::sync_wait();
     } catch (int &addr) {
         CHECK(addr == 1);
     }
@@ -58,15 +58,15 @@ TEST_CASE("test bus read with alternate XPolicy", "[test_bus]") {
 TEST_CASE("test bus write", "[test_bus]") {
     groov::test::store<"test">::reset();
     groov::test::bus<"test"> b{};
-    auto r = b.write<1, 0, 0>(1, 42) | async::sync_wait();
+    auto r = b.write<"", 1, 0, 0>(1, 42) | async::sync_wait();
     REQUIRE(r);
 }
 
 TEST_CASE("test bus write and read back", "[test_bus]") {
     groov::test::store<"test">::reset();
     groov::test::bus<"test"> b{};
-    REQUIRE(b.write<1, 0, 0>(1, 42) | async::sync_wait());
-    auto r = b.read<1>(1) | async::sync_wait();
+    REQUIRE(b.write<"", 1, 0, 0>(1, 42) | async::sync_wait());
+    auto r = b.read<"", 1>(1) | async::sync_wait();
     REQUIRE(r);
     auto opt_val = get<0>(*r);
     REQUIRE(opt_val);

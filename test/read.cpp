@@ -17,7 +17,8 @@ struct bus {
     static inline int num_reads{};
     static inline std::uint32_t last_mask{};
 
-    template <auto Mask> static auto read(auto addr) -> async::sender auto {
+    template <stdx::ct_string, auto Mask>
+    static auto read(auto addr) -> async::sender auto {
         return async::just_result_of([=] {
             ++num_reads;
             last_mask = Mask;
@@ -28,7 +29,8 @@ struct bus {
     struct dummy_sender {
         using is_sender = void;
     };
-    template <auto...> static auto write(auto...) -> async::sender auto {
+    template <stdx::ct_string, auto...>
+    static auto write(auto...) -> async::sender auto {
         return dummy_sender{};
     }
 };
@@ -200,14 +202,16 @@ namespace {
 template <auto Addr> std::uint32_t data{};
 
 struct ct_address_bus {
-    template <auto Mask, typename T> static auto read(T) -> async::sender auto {
+    template <stdx::ct_string, auto Mask, typename T>
+    static auto read(T) -> async::sender auto {
         return async::just_result_of([=] { return data<T::value>; });
     }
 
     struct dummy_sender {
         using is_sender = void;
     };
-    template <auto...> static auto write(auto...) -> async::sender auto {
+    template <stdx::ct_string, auto...>
+    static auto write(auto...) -> async::sender auto {
         return dummy_sender{};
     }
 };
@@ -226,14 +230,17 @@ TEST_CASE("read a register with integral constant address", "[read]") {
 
 namespace {
 struct bus_u8 {
-    template <auto Mask> static auto read(auto addr) -> async::sender auto {
+    template <stdx::ct_string Name, auto Mask>
+    static auto read(auto addr) -> async::sender auto {
+        STATIC_REQUIRE(Name == stdx::ct_string{"reg"});
         return async::just_result_of([=] { return *addr; });
     }
 
     struct dummy_sender {
         using is_sender = void;
     };
-    template <auto...> static auto write(auto...) -> async::sender auto {
+    template <stdx::ct_string, auto...>
+    static auto write(auto...) -> async::sender auto {
         return dummy_sender{};
     }
 };

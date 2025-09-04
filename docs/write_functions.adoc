@@ -103,7 +103,7 @@ constexpr auto identity_value = 0u;       // field_0 has id_spec none
 
 // the write mask and the identity mask don't cover the range of the register,
 // so the bus must read-modify-write to preserve unwritten bits
-bus::template write<write_mask, identity_mask, identity_value>(/* ... */);
+bus::template write<"my_reg", write_mask, identity_mask, identity_value>(/* ... */);
 ----
 
 But if the unwritten field(s) are "read-only", i.e. have the `ignore` write
@@ -127,7 +127,7 @@ constexpr auto identity_value = 0u;          // field_0 has id_spec any (zeroes 
 // the write mask and the identity mask cover the range of the register,
 // so the bus may OR the identity value with the written value to preserve
 // unwritten bits and avoid read-modify-write
-bus::template write<write_mask, identity_mask, identity_value>(/* ... */);
+bus::template write<"my_reg", write_mask, identity_mask, identity_value>(/* ... */);
 ----
 
 ==== Custom write functions

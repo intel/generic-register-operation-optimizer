@@ -149,10 +149,10 @@ is used by `read` and `write`. So it has its own `read` and `write` API.
 [source,cpp]
 ----
 struct bus {
-  template <auto Mask>
+  template <stdx::ct_string RegisterName, auto Mask>
   static auto read(auto addr) -> async::sender auto;
 
-  template <auto Mask, auto IdMask, auto IdValue>
+  template <stdx::ct_string RegisterName, auto Mask, auto IdMask, auto IdValue>
   static auto write(auto addr, auto value) -> async::sender auto;
 };
 ----
