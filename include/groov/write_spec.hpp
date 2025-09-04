@@ -171,6 +171,7 @@ template <typename R, typename F> struct field_proxy {
 
 template <typename Group, typename Paths, typename Value>
 struct write_spec : Group {
+    using is_write_spec = void;
     using paths_t = Paths;
     using value_t = Value;
     [[no_unique_address]] value_t value;
