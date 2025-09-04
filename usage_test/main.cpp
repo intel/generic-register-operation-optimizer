@@ -10,12 +10,13 @@
 
 namespace {
 struct bus {
-    template <auto Mask, auto IdMask, auto IdValue>
+    template <stdx::ct_string, auto Mask, auto IdMask, auto IdValue>
     static auto write(auto addr, auto value) -> async::sender auto {
         return async::just_result_of([=] { *addr = (*addr & ~Mask) | value; });
     }
 
-    template <auto Mask> static auto read(auto addr) -> async::sender auto {
+    template <stdx::ct_string, auto Mask>
+    static auto read(auto addr) -> async::sender auto {
         return async::just_result_of([=] { return *addr; });
     }
 };

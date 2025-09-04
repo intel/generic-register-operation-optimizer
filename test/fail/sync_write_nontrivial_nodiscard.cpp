@@ -1,3 +1,5 @@
+#include "dummy_bus.hpp"
+
 #include <groov/config.hpp>
 #include <groov/path.hpp>
 #include <groov/value_path.hpp>
@@ -13,14 +15,9 @@
 // EXPECT: ignoring return
 
 namespace {
-struct bus {
-    struct dummy_sender {
-        using is_sender = void;
-    };
-    template <auto> static auto read(auto...) -> async::sender auto {
-        return dummy_sender{};
-    }
-    template <auto...> static auto write(auto...) -> async::sender auto {
+struct write_bus : dummy_bus {
+    template <stdx::ct_string, auto...>
+    static auto write(auto...) -> async::sender auto {
         return async::thread_scheduler{}.schedule();
     }
 };
@@ -28,7 +25,7 @@ struct bus {
 std::uint32_t data0{};
 using R0 = groov::reg<"reg0", std::uint32_t, &data0, groov::w::replace>;
 
-using G = groov::group<"group", bus, R0>;
+using G = groov::group<"group", write_bus, R0>;
 } // namespace
 
 auto main() -> int {

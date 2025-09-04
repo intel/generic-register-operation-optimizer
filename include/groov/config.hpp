@@ -34,24 +34,23 @@ using get_bus = stdx::type_lookup_t<test::test_bus_list, stdx::cts_t<Name>, T>;
 
 namespace groov {
 namespace detail {
-template <stdx::ct_string Name> struct name_t;
 template <typename T> using name_of = typename T::name_t;
 } // namespace detail
 
 template <typename T>
 concept named =
-    stdx::is_specialization_of<typename T::name_t, detail::name_t>().value;
+    stdx::is_specialization_of<typename T::name_t, stdx::cts_t>().value;
 
 template <stdx::ct_string Name, named... Ts> struct named_container {
   private:
     template <stdx::ct_string N> struct has_name_q {
         template <named T>
-        using fn = std::is_same<detail::name_of<T>, detail::name_t<N>>;
+        using fn = std::is_same<detail::name_of<T>, stdx::cts_t<N>>;
     };
 
   public:
     constexpr static auto name = Name;
-    using name_t = detail::name_t<Name>;
+    using name_t = stdx::cts_t<Name>;
     using children_t = boost::mp11::mp_list<Ts...>;
 
     template <stdx::ct_string S>
@@ -196,11 +195,12 @@ concept registerlike = fieldlike<T> and requires {
 template <typename T, typename Reg>
 concept bus_for = requires(typename Reg::type_t data) {
     {
-        T::template read<typename Reg::type_t{}>(get_address<Reg>())
+        T::template read<Reg::name, typename Reg::type_t{}>(get_address<Reg>())
     } -> async::sender;
     {
-        T::template write<typename Reg::type_t{}, typename Reg::type_t{},
-                          typename Reg::type_t{}>(get_address<Reg>(), data)
+        T::template write<Reg::name, typename Reg::type_t{},
+                          typename Reg::type_t{}, typename Reg::type_t{}>(
+            get_address<Reg>(), data)
     } -> async::sender;
 };
 

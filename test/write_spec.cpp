@@ -14,10 +14,12 @@ struct bus {
         using is_sender = void;
     };
 
-    template <auto> static auto read(auto...) -> async::sender auto {
+    template <stdx::ct_string, auto>
+    static auto read(auto...) -> async::sender auto {
         return sender{};
     }
-    template <auto...> static auto write(auto...) -> async::sender auto {
+    template <stdx::ct_string, auto...>
+    static auto write(auto...) -> async::sender auto {
         return sender{};
     }
 };
