@@ -13,6 +13,15 @@ TEST_CASE("path with value (operator=)", "[value_path]") {
     STATIC_REQUIRE(v.value == 5);
 }
 
+TEST_CASE("const path with value (operator=)", "[value_path]") {
+    using namespace groov::literals;
+    constexpr auto p = "reg"_r / "field"_f;
+    constexpr auto v = p = 5;
+    STATIC_REQUIRE(std::is_same_v<groov::get_path_t<decltype(v)>,
+                                  decltype("reg.field"_f)>);
+    STATIC_REQUIRE(v.value == 5);
+}
+
 TEST_CASE("path with value (operator())", "[value_path]") {
     using namespace groov::literals;
     constexpr auto v = "reg"_r(5);
