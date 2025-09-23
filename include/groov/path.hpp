@@ -21,7 +21,7 @@ template <stdx::ct_string... Parts> struct path {
 
     template <typename T>
     // NOLINTNEXTLINE(misc-unconventional-assign-operator)
-    constexpr auto operator=(T const &value) {
+    constexpr auto operator=(T const &value) const {
         return (*this)(value);
     }
 
