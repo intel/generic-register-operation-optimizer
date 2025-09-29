@@ -45,8 +45,8 @@ template <pathlike Path, typename Value> struct value_path : Path {
             }
         } else {
             using leftover_t = resolve_t<Path, P>;
-            auto const leftover_path = groov::resolve(Path{}, p);
             if constexpr (pathlike<leftover_t>) {
+                auto const leftover_path = groov::resolve(Path{}, p);
                 if constexpr (std::empty(leftover_path) and
                               not stdx::is_specialization_of_v<value_t,
                                                                stdx::tuple>) {
@@ -55,7 +55,7 @@ template <pathlike Path, typename Value> struct value_path : Path {
                     return value_path<leftover_t, Value>{{}, value};
                 }
             } else {
-                return leftover_path;
+                return groov::resolve(Path{}, p);
             }
         }
     }
