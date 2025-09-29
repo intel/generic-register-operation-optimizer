@@ -254,19 +254,21 @@ constexpr auto to_write_spec(read_spec<Group, Paths>, Ps const &...ps) {
     using register_data_t =
         boost::mp11::mp_apply<stdx::tuple, register_values_t>;
 
-    auto w = write_spec<Group, Paths, register_data_t>{};
-    [[maybe_unused]] constexpr auto insert =
-        []<valued_pathlike P>(P const &p, [[maybe_unused]] auto &values) {
-            using matches =
-                boost::mp11::mp_copy_if_q<register_values_t, resolves_q<P>>;
-            using R = boost::mp11::mp_first<matches>;
-            auto &dest_reg = stdx::get<R>(values);
-            using F = resolve_t<R, typename P::path_t>;
+    return [&]() -> write_spec<Group, Paths, register_data_t> {
+        auto w = write_spec<Group, Paths, register_data_t>{};
+        [[maybe_unused]] constexpr auto insert =
+            []<valued_pathlike P>(P const &p, [[maybe_unused]] auto &values) {
+                using matches =
+                    boost::mp11::mp_copy_if_q<register_values_t, resolves_q<P>>;
+                using R = boost::mp11::mp_first<matches>;
+                auto &dest_reg = stdx::get<R>(values);
+                using F = resolve_t<R, typename P::path_t>;
 
-            F::insert(dest_reg.value, detail::convert_value<F>(p.value));
-        };
-    (insert(ps, w.value), ...);
-    return w;
+                F::insert(dest_reg.value, detail::convert_value<F>(p.value));
+            };
+        (insert(ps, w.value), ...);
+        return w;
+    }();
 }
 
 template <typename G, valued_pathlike... Ps>
