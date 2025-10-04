@@ -7,6 +7,8 @@
 #include <async/just_result_of.hpp>
 #include <async/then.hpp>
 
+#include <stdx/ct_string.hpp>
+
 #include <boost/mp11/algorithm.hpp>
 #include <boost/mp11/integral.hpp>
 #include <boost/mp11/list.hpp>
@@ -100,7 +102,8 @@ struct cpp_mem_iface {
 template <typename HardwareInterface = cpp_mem_iface> struct mmio_bus {
     using iface = HardwareInterface;
 
-    template <auto Mask, decltype(Mask) IdMask, decltype(Mask) IdValue>
+    template <stdx::ct_string, auto Mask, decltype(Mask) IdMask,
+              decltype(Mask) IdValue>
         requires std::unsigned_integral<decltype(Mask)>
     static auto write(auto addr, decltype(Mask) value) -> async::sender auto {
         static_assert((Mask & IdMask) == decltype(Mask){});
@@ -144,7 +147,7 @@ template <typename HardwareInterface = cpp_mem_iface> struct mmio_bus {
         }
     }
 
-    template <std::unsigned_integral auto Mask>
+    template <stdx::ct_string, std::unsigned_integral auto Mask>
     static auto read(auto addr) -> async::sender auto {
         using base_type = decltype(Mask);
         return iface::template load<base_type>(addr);
