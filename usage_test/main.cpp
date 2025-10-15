@@ -33,16 +33,20 @@ using G = groov::group<"group", bus, R>;
 constexpr auto grp = G{};
 } // namespace
 
+#if __STDC_HOSTED__ == 0
+extern "C" auto main() -> int;
+#endif
+
 auto main() -> int {
     using namespace groov::literals;
     data = 0xa5u;
-    async::just(grp / "reg"_r) //
-        | groov::read()        //
-        | async::then([](auto spec) {
-              spec["reg"_r] ^= 0xff;
-              return spec;
-          })             //
-        | groov::write() //
-        | async::sync_wait();
+    [[maybe_unused]] auto result = async::just(grp / "reg"_r) //
+                                   | groov::read()            //
+                                   | async::then([](auto spec) {
+                                         spec["reg"_r] ^= 0xff;
+                                         return spec;
+                                     })             //
+                                   | groov::write() //
+                                   | async::sync_wait();
     assert(data == 0x5au);
 }
