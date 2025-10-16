@@ -12,3 +12,7 @@ cpmaddpackage(NAME generic-register-operation-optimizer SOURCE_DIR
 
 add_executable(app main.cpp)
 target_link_libraries(app PRIVATE groov)
+if(CPP_IMPLEMENTATION STREQUAL "FREESTANDING")
+    target_compile_definitions(app PRIVATE SIMULATE_FREESTANDING)
+    target_compile_options(app PRIVATE -ffreestanding)
+endif()
