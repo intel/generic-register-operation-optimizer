@@ -6,6 +6,7 @@
 #include <async/sync_wait.hpp>
 
 #include <cassert>
+#include <concepts>
 #include <cstdint>
 
 namespace {
@@ -37,6 +38,25 @@ constexpr auto grp = G{};
 extern "C" auto main() -> int;
 #endif
 
+#ifdef ASYNC_FREESTANDING
+namespace {
+struct conc_policy {
+    template <typename = void, std::invocable F, std::predicate... Pred>
+        requires(sizeof...(Pred) < 2)
+    static inline auto call_in_critical_section(F &&f, auto &&...pred)
+        -> decltype(auto) {
+        while (true) {
+            if ((... and pred())) {
+                return std::forward<F>(f)();
+            }
+        }
+    }
+};
+} // namespace
+
+template <> inline auto conc::injected_policy<> = conc_policy{};
+#endif
+
 auto main() -> int {
     using namespace groov::literals;
     data = 0xa5u;
@@ -49,4 +69,5 @@ auto main() -> int {
                                    | groov::write() //
                                    | async::sync_wait();
     assert(data == 0x5au);
+    return 0;
 }
