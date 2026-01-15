@@ -10,7 +10,7 @@ TEST_CASE("path with value (operator=)", "[value_path]") {
     constexpr auto v = "reg"_r / "field"_f = 5;
     STATIC_REQUIRE(std::is_same_v<groov::get_path_t<decltype(v)>,
                                   decltype("reg.field"_f)>);
-    STATIC_REQUIRE(v.value == 5);
+    STATIC_REQUIRE(v.value == stdx::tuple{5});
 }
 
 TEST_CASE("const path with value (operator=)", "[value_path]") {
@@ -19,7 +19,7 @@ TEST_CASE("const path with value (operator=)", "[value_path]") {
     constexpr auto v = p = 5;
     STATIC_REQUIRE(std::is_same_v<groov::get_path_t<decltype(v)>,
                                   decltype("reg.field"_f)>);
-    STATIC_REQUIRE(v.value == 5);
+    STATIC_REQUIRE(v.value == stdx::tuple{5});
 }
 
 TEST_CASE("path with value (operator())", "[value_path]") {
@@ -27,7 +27,7 @@ TEST_CASE("path with value (operator())", "[value_path]") {
     constexpr auto v = "reg"_r(5);
     STATIC_REQUIRE(
         std::is_same_v<groov::get_path_t<decltype(v)>, decltype("reg"_f)>);
-    STATIC_REQUIRE(v.value == 5);
+    STATIC_REQUIRE(v.value == stdx::tuple{5});
 }
 
 TEST_CASE("path with value can resolve path", "[value_path]") {
@@ -36,7 +36,7 @@ TEST_CASE("path with value can resolve path", "[value_path]") {
     constexpr auto r = groov::resolve(v, "reg"_r);
     STATIC_REQUIRE(
         std::is_same_v<groov::get_path_t<decltype(r)>, decltype("field"_f)>);
-    STATIC_REQUIRE(r.value == 5);
+    STATIC_REQUIRE(r.value == stdx::tuple{5});
 }
 
 TEST_CASE("mismatched path gives invalid resolution", "[value_path]") {
@@ -70,8 +70,9 @@ TEST_CASE("register with multiple field values", "[value_path]") {
             groov::value_path<
                 groov::path<"reg">,
                 stdx::tuple<
-                    groov::value_path<groov::path<"field1">, int>,
-                    groov::value_path<groov::path<"field2">, double>>> const>);
+                    groov::value_path<groov::path<"field1">, stdx::tuple<int>>,
+                    groov::value_path<groov::path<"field2">,
+                                      stdx::tuple<double>>>> const>);
 }
 
 TEST_CASE("retrieve values by path", "[value_path]") {
@@ -86,7 +87,7 @@ TEST_CASE("drill down into value with partial path", "[value_path]") {
     constexpr auto r = v["reg"_r];
     STATIC_REQUIRE(
         std::is_same_v<groov::get_path_t<decltype(r)>, decltype("field"_f)>);
-    STATIC_REQUIRE(r.value == 5);
+    STATIC_REQUIRE(r.value == stdx::tuple{5});
 }
 
 TEST_CASE("retrieve located value by path", "[value_path]") {
@@ -94,8 +95,8 @@ TEST_CASE("retrieve located value by path", "[value_path]") {
     constexpr auto v = "reg"_r / "field"_f = 5;
     constexpr auto f = v["reg"_r];
     STATIC_REQUIRE(
-        std::is_same_v<decltype(f),
-                       groov::value_path<groov::path<"field">, int> const>);
+        std::is_same_v<decltype(f), groov::value_path<groov::path<"field">,
+                                                      stdx::tuple<int>> const>);
     STATIC_REQUIRE(f["field"_f] == 5);
 }
 
@@ -127,7 +128,7 @@ TEST_CASE("path with value can be extended", "[value_path]") {
     constexpr auto v = "reg"_r / ("field"_f = 5);
     STATIC_REQUIRE(std::is_same_v<groov::get_path_t<decltype(v)>,
                                   decltype("reg.field"_f)>);
-    STATIC_REQUIRE(v.value == 5);
+    STATIC_REQUIRE(v.value == stdx::tuple{5});
     STATIC_REQUIRE(v["reg"_r]["field"_f] == 5);
 }
 

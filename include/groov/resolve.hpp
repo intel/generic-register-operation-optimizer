@@ -18,7 +18,7 @@ concept pathlike = requires(T const &t) {
 };
 
 template <typename T>
-concept valued = requires { typename T::value_t; };
+concept valued = requires { typename std::remove_cvref_t<T>::value_t; };
 
 template <typename T>
 concept valued_pathlike = pathlike<T> and valued<T>;
@@ -36,6 +36,11 @@ struct mismatch_t : invalid_t {};
 struct ambiguous_t : invalid_t {};
 
 template <typename T, pathlike Path, typename... Args>
+constexpr auto resolve(T const &, Path const &, Args const &...) -> too_long_t {
+    return {};
+}
+
+template <stdx::has_trait<std::is_class> T, pathlike Path, typename... Args>
 constexpr auto resolve(T const &t, Path const &p, Args const &...args)
     -> decltype(auto) {
     return t.resolve(p, args...);
@@ -70,8 +75,7 @@ template <typename... Args>
 concept can_resolve = not(stdx::derived_from<resolve_t<Args...>, invalid_t>);
 
 template <typename... Args>
-constexpr static bool is_resolvable_v =
-    can_resolve<std::remove_cvref_t<Args>...>;
+constexpr static bool is_resolvable_v = can_resolve<Args...>;
 
 template <typename... Ts>
 using is_resolvable_t = std::bool_constant<is_resolvable_v<Ts...>>;
