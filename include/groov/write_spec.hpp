@@ -7,6 +7,7 @@
 #include <groov/resolve.hpp>
 
 #include <stdx/tuple.hpp>
+#include <stdx/tuple_algorithms.hpp>
 #include <stdx/type_traits.hpp>
 
 #include <boost/mp11/algorithm.hpp>
@@ -271,10 +272,33 @@ constexpr auto to_write_spec(read_spec<Group, Paths>, Ps const &...ps) {
     }();
 }
 
+namespace detail {
+template <valued_pathlike P> constexpr auto flatten_paths(P &&p) {
+    using VP = std::remove_cvref_t<P>;
+    using contained_value_t = stdx::tuple_element_t<0, typename VP::value_t>;
+
+    if constexpr (valued_pathlike<contained_value_t>) {
+        return stdx::transform(
+            [](auto const &vp) {
+                return vp.template with_prepend<typename VP::path_t>();
+            },
+            p.value.apply([]<typename... Ps>(Ps &&...ps) {
+                return stdx::tuple_cat(flatten_paths(std::forward<Ps>(ps))...);
+            }));
+    } else {
+        return stdx::tuple{std::forward<P>(p).untuple()};
+    }
+}
+} // namespace detail
+
 template <typename G, valued_pathlike... Ps>
-constexpr auto tag_invoke(make_spec_t, G, Ps const &...ps) {
-    using L = boost::mp11::mp_list<typename Ps::path_t...>;
-    detail::check_valid_config<G, L>();
-    return to_write_spec(read_spec<G, L>{}, ps...);
+constexpr auto tag_invoke(make_spec_t, G, Ps &&...ps) {
+    return stdx::tuple_cat(detail::flatten_paths(std::forward<Ps>(ps))...)
+        .apply([]<typename... VPs>(VPs &&...vps) {
+            using L = boost::mp11::mp_list<
+                typename std::remove_cvref_t<VPs>::path_t...>;
+            detail::check_valid_config<G, L>();
+            return to_write_spec(read_spec<G, L>{}, std::forward<VPs>(vps)...);
+        });
 }
 } // namespace groov

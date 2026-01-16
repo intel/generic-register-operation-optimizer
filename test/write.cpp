@@ -103,6 +103,13 @@ TEST_CASE("write a field", "[write]") {
     CHECK(data0 == 0b1'0001'1u);
 }
 
+TEST_CASE("write a field (alt)", "[write]") {
+    using namespace groov::literals;
+    data0 = 0b1'1010'1u;
+    CHECK(sync_write(grp("reg0"_r("field1"_f = 1))));
+    CHECK(data0 == 0b1'0001'1u);
+}
+
 TEST_CASE("set a field", "[write]") {
     using namespace groov::literals;
     data0 = 0u;
@@ -126,12 +133,33 @@ TEST_CASE("write multiple fields to the same register", "[write]") {
     CHECK(data0 == 0b1'0101'1u);
 }
 
+TEST_CASE("write multiple fields to the same register (alt)", "[write]") {
+    using namespace groov::literals;
+    data0 = 0b1'1010'0u;
+    bus::num_writes = 0;
+    CHECK(sync_write(grp("reg0"_r("field0"_f = 1, "field1"_f = 0b101u))));
+    CHECK(bus::num_writes == 1);
+    CHECK(data0 == 0b1'0101'1u);
+}
+
 TEST_CASE("write multiple fields to different registers", "[write]") {
     using namespace groov::literals;
     data0 = 0b1'1010'0u;
     data1 = 0b1'1010'0u;
     bus::num_writes = 0;
     CHECK(sync_write(grp("reg0.field0"_f = 1, "reg1.field1"_f = 0b101u)));
+    CHECK(bus::num_writes == 2);
+    CHECK(data0 == 0b1'1010'1u);
+    CHECK(data1 == 0b1'0101'0u);
+}
+
+TEST_CASE("write multiple fields to different registers (alt)", "[write]") {
+    using namespace groov::literals;
+    data0 = 0b1'1010'0u;
+    data1 = 0b1'1010'0u;
+    bus::num_writes = 0;
+    CHECK(sync_write(
+        grp("reg0"_r("field0"_f = 1), "reg1"_r("field1"_f = 0b101u))));
     CHECK(bus::num_writes == 2);
     CHECK(data0 == 0b1'1010'1u);
     CHECK(data1 == 0b1'0101'0u);
@@ -144,6 +172,19 @@ TEST_CASE("write multiple fields to each of multiple registers", "[write]") {
     bus::num_writes = 0;
     CHECK(sync_write(grp("reg0.field0"_f = 1, "reg0.field1"_f = 0b101u,
                          "reg1.field0"_f = 0, "reg1.field1"_f = 0b1010u)));
+    CHECK(bus::num_writes == 2);
+    CHECK(data0 == 0b1'0101'1u);
+    CHECK(data1 == 0b1'1010'0u);
+}
+
+TEST_CASE("write multiple fields to each of multiple registers (alt)",
+          "[write]") {
+    using namespace groov::literals;
+    data0 = 0b1'0000'0u;
+    data1 = 0b1'0000'1u;
+    bus::num_writes = 0;
+    CHECK(sync_write(grp("reg0"_r("field0"_f = 1, "field1"_f = 0b101u),
+                         "reg1"_r("field0"_f = 0, "field1"_f = 0b1010u))));
     CHECK(bus::num_writes == 2);
     CHECK(data0 == 0b1'0101'1u);
     CHECK(data1 == 0b1'1010'0u);
