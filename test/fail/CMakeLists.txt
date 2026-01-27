@@ -21,6 +21,7 @@ add_fail_tests(
 
 function(add_formatted_error_tests)
     add_fail_tests(write_read_only_field)
+    add_fail_tests(write_reg_partial_read_only)
 endfunction()
 
 if(${CMAKE_CXX_STANDARD} GREATER_EQUAL 20)
