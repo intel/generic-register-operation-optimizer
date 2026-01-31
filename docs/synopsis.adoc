@@ -1,0 +1,220 @@
+
+== What to `#include`?
+
+=== Quick start
+
+For a quick start and for prototyping, you can manage by just including `groov.hpp`.
+
+[source,cpp]
+----
+#include <groov/groov.hpp>
+
+// now do whatever you like
+----
+
+=== Definitions
+
+What field, register, group and bus definitions require is in `config.hpp`.
+
+[source,cpp]
+----
+#include <groov/config.hpp>
+
+struct bus {
+    template <stdx::ct_string RegisterName, auto Mask>
+    static auto read([[maybe_unused]] auto addr)
+        -> async::sender auto { ... }
+
+    template <stdx::ct_string RegisterName, auto Mask, auto IdMask, auto IdValue>
+    static auto write([[maybe_unused]] auto addr, [[maybe_unused]] auto value)
+        -> async::sender auto { ... }
+};
+
+using F = groov::field<"field", std::uint32_t, 0, 0>;
+using R = groov::reg<"reg", std::uint32_t, 0, groov::w::replace, F>;
+using G = groov::group<"group", bus, R>;
+----
+
+NOTE: `config.hpp` transitively includes `identity.hpp`.
+
+=== Composing paths
+
+To define and wrangle paths in various ways, what is needed depends on whether
+the paths are valueless (for reading), or have values attached (for writing).
+
+[source,cpp]
+----
+// for valueless paths (reading)
+
+#include <groov/path.hpp>         // for UDLs
+#include <groov/read_spec.hpp>
+
+auto s = grp("reg.field"_f);
+// s is a read_spec and can be passed to a read call
+----
+
+[source,cpp]
+----
+// for paths with values attached (writing)
+
+#include <groov/path.hpp>         // for UDLs
+#include <groov/value_path.hpp>   // for "path = value"
+#include <groov/write_spec.hpp>
+
+auto s = grp("reg.field"_f = 42);
+// s is a write_spec and can be passed to a write call
+----
+
+=== Reading
+
+To read, you will need `read.hpp`.
+
+[source,cpp]
+----
+#include <groov/read.hpp>         // for read and sync_read
+
+auto r = sync_read(grp / "reg"_r);
+----
+
+NOTE: `read.hpp` transitively includes `path.hpp` and `read_spec.hpp`.
+
+NOTE: Absent asynchronous concerns, `read` is a function that takes a
+`read_spec` and produces a `write_spec`.
+
+=== Writing
+
+To write, you will need `write.hpp` _and_ `write_spec.hpp`. (And probably
+`path.hpp` and `value_path.hpp`.)
+
+[source,cpp]
+----
+#include <groov/path.hpp>         // for UDLs
+#include <groov/value_path.hpp>   // for "path = value"
+#include <groov/write.hpp>        // for write and sync_write
+#include <groov/write_spec.hpp>
+
+auto r = sync_write(grp("reg"_r = 42));
+----
+
+NOTE: `write.hpp` does not transitively include very much! And yet perhaps
+paradoxically, `read.hpp` transitively includes `write_spec.hpp`. This is
+because `write` merely requires a concept constraint, not the actual definition
+of `write_spec`. Whereas `read` _returns_ a `write_spec`, so requires its
+definition.
+
+== Index of identifiers
+
+=== By header
+
+==== https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/attach_value.hpp[attach_value.hpp]
+* `attach_value` - a function object that powers `"reg.field"_f = value` style assignments
+
+==== https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/boost_extra.hpp[attach_value.hpp]
+No public identifiers: this header contains metaprogramming helpers.
+
+==== https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/config.hpp[config.hpp]
+* `bus` - a type implementing read and write operations for registers
+* `field` - a type representing a field within a register
+* `group` - a type representing several registers grouped according to access, with a bus
+* `register` - a type representing a register
+
+==== https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/groov.hpp[groov.hpp]
+No identifiers: this is an omnibus header that includes other headers.
+
+==== https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/identity.hpp[identity.hpp]
+* `read_only` - a policy that marks a field as unable to be written
+* `m::any` - a mask type representing X or "don't care"
+* `m::one` - a mask type representing zeros
+* `m::zero` - a mask type representing ones
+* `w::ignore` - a write function representing ignorability (aka "read only"/"hardware ignores writes")
+* `w::one_to_clear` - a write function where writing one clears the field (and zero is ignored)
+* `w::one_to_set` - a write function where writing one sets the field (and zero is ignored)
+* `w::replace` - a write function representing replacement (aka "normal write semantics")
+* `w::zero_to_clear` - a write function where writing zero clears the field (and one is ignored)
+* `w::zero_to_set` - a write function where writing zero sets the field (and one is ignored)
+
+==== https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/make_spec.hpp[make_spec.hpp]
+* `make_spec` - a function object that powers `grp("reg.field"_f)` and
+  `grp("reg.field"_f = value)` calls that produce `read_spec` and `write_spec`
+  values respectively
+
+==== https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/mmio_bus.hpp[mmio_bus.hpp]
+* `mmio_bus` - a class template that defines a bus using memory-mapped IO semantics
+
+==== https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/path.hpp[path.hpp]
+* `literals::operator""_f` - a UDL that produces a path
+* `literals::operator""_g` - a UDL that produces a path
+* `literals::operator""_r` - a UDL that produces a path
+* `path` - a type representing the location of a register or field value within a layout
+
+==== https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/read.hpp[read.hpp]
+* `read` - a function that takes a `read_spec` and produces a sender that produces a `write_spec`
+* `sync_read` - a function that takes a `read_spec` and blocks, producing the `write_spec`
+
+==== https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/read_spec.hpp[read_spec.hpp]
+* `read_spec` - the result of calling e.g. `grp("reg.field"_f)`; an object
+  containing path information that will direct a read
+
+==== https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/resolve.hpp[resolve.hpp]
+No public identifiers: this header contains metaprogramming helpers.
+
+==== https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/test.hpp[test.hpp]
+* `test::bus` - a bus implementation intended for unit tests
+* `test::get_value` - a test utility function for checking values
+* `test::reset_store` - a function to reset all test values
+* `test::set_read_function` - a test utility function to control read semantics
+* `test::set_value` - a test utility function for populating values
+* `test::set_write_function` - a test utility function to control write semantics
+* `test::store` - a generic store of register values used in testing
+
+==== https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/value_path.hpp[value_path.hpp]
+* `value_path` - a type representing the location of a register or field value within
+  a layout, with a value attached (but not yet packed into the correct layout)
+
+==== https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/write.hpp[write.hpp]
+* `write` - a function that takes a `write_spec` and produces a sender that writes the values
+* `sync_write` - a function that takes a `write_spec` and blocks, writing the value(s)
+
+==== https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/write_spec.hpp[write_spec.hpp]
+* `write_spec` - the result of calling e.g. `grp("reg.field"_f = 42)`; an object
+  containing both path information and with data in the correct layout
+
+
+
+=== By identifier
+
+* `attach_value` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/attach_value.hpp[`#include <groov/attach_value.hpp>`]
+* `bus` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/config.hpp[`#include <groov/config.hpp>`]
+* `field` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/config.hpp[`#include <groov/config.hpp>`]
+* `group` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/config.hpp[`#include <groov/config.hpp>`]
+* `literals::operator""_f` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/path.hpp[`#include <groov/path.hpp>`]
+* `literals::operator""_g` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/path.hpp[`#include <groov/path.hpp>`]
+* `literals::operator""_r` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/path.hpp[`#include <groov/path.hpp>`]
+* `m::any` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/identity.hpp[`#include <groov/identity.hpp>`]
+* `m::one` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/identity.hpp[`#include <groov/identity.hpp>`]
+* `m::zero` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/identity.hpp[`#include <groov/identity.hpp>`]
+* `make_spec` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/make_spec.hpp[`#include <groov/make_spec.hpp>`]
+* `mmio_bus` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/mmio_bus.hpp[`#include <groov/mmio_bus.hpp>`]
+* `path` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/path.hpp[`#include <groov/path.hpp>`]
+* `read` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/read.hpp[`#include <groov/read.hpp>`]
+* `read_only` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/identity.hpp[`#include <groov/identity.hpp>`]
+* `read_spec` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/read_spec.hpp[`#include <groov/read_spec.hpp>`]
+* `register` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/config.hpp[`#include <groov/config.hpp>`]
+* `sync_read` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/read.hpp[`#include <groov/read.hpp>`]
+* `sync_write` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/write.hpp[`#include <groov/write.hpp>`]
+* `test::bus` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/test.hpp[`#include <groov/test.hpp>`]
+* `test::get_value` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/test.hpp[`#include <groov/test.hpp>`]
+* `test::reset_store` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/test.hpp[`#include <groov/test.hpp>`]
+* `test::set_read_function` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/test.hpp[`#include <groov/test.hpp>`]
+* `test::set_value` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/test.hpp[`#include <groov/test.hpp>`]
+* `test::set_write_function` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/test.hpp[`#include <groov/test.hpp>`]
+* `test::store` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/test.hpp[`#include <groov/test.hpp>`]
+* `value_path` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/value_path.hpp[`#include <groov/value_path.hpp>`]
+* `w::ignore` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/identity.hpp[`#include <groov/identity.hpp>`]
+* `w::one_to_clear` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/identity.hpp[`#include <groov/identity.hpp>`]
+* `w::one_to_set` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/identity.hpp[`#include <groov/identity.hpp>`]
+* `w::replace` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/identity.hpp[`#include <groov/identity.hpp>`]
+* `w::zero_to_clear` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/identity.hpp[`#include <groov/identity.hpp>`]
+* `w::zero_to_set` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/identity.hpp[`#include <groov/identity.hpp>`]
+* `write` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/write.hpp[`#include <groov/write.hpp>`]
+* `write_spec` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/write_spec.hpp[`#include <groov/write_spec.hpp>`]
