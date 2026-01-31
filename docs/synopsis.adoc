@@ -22,12 +22,10 @@ What field, register, group and bus definitions require is in `config.hpp`.
 
 struct bus {
     template <stdx::ct_string RegisterName, auto Mask>
-    static auto read([[maybe_unused]] auto addr)
-        -> async::sender auto { ... }
+    static auto read(auto addr) -> async::sender auto { ... }
 
     template <stdx::ct_string RegisterName, auto Mask, auto IdMask, auto IdValue>
-    static auto write([[maybe_unused]] auto addr, [[maybe_unused]] auto value)
-        -> async::sender auto { ... }
+    static auto write(auto addr, auto value) -> async::sender auto { ... }
 };
 
 using F = groov::field<"field", std::uint32_t, 0, 0>;
@@ -109,7 +107,7 @@ definition.
 ==== https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/attach_value.hpp[attach_value.hpp]
 * `attach_value` - a function object that powers `"reg.field"_f = value` style assignments
 
-==== https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/boost_extra.hpp[attach_value.hpp]
+==== https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/boost_extra.hpp[boost_extra.hpp]
 No public identifiers: this header contains metaprogramming helpers.
 
 ==== https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/config.hpp[config.hpp]
