@@ -93,6 +93,8 @@ constexpr auto root(path<P, Ps...> const &) {
     return P;
 }
 
+constexpr inline auto root(path<> const &) { return stdx::ct_string{""}; }
+
 template <pathlike P> constexpr auto without_root(P const &p) {
     return p.without_root();
 }
