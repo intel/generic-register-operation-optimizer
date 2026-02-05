@@ -6,6 +6,7 @@
 #include <groov/read_spec.hpp>
 #include <groov/resolve.hpp>
 
+#include <stdx/compiler.hpp>
 #include <stdx/tuple.hpp>
 #include <stdx/tuple_algorithms.hpp>
 #include <stdx/type_traits.hpp>
@@ -208,7 +209,7 @@ struct write_spec : Group {
     }
 
   public:
-    template <pathlike P> constexpr auto operator[](P const &) {
+    template <pathlike P> constexpr auto operator[](P const &) LIFETIMEBOUND {
         constexpr auto idx = find_index<P>();
         auto &r = stdx::get<idx>(value);
         using R = decltype(r);
