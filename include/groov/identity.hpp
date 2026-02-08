@@ -94,6 +94,25 @@ template <identity_write_function T> struct read_only : T {
 };
 
 template <typename T>
+concept no_identity_write_function = not identity_write_function<T>;
+
+template <no_identity_write_function T> struct write_only : T {
+    using write_only_t = int;
+};
+
+template <typename T>
 concept read_only_write_function =
     identity_write_function<T> and requires { typename T::read_only_t; };
+
+template <typename T>
+concept write_only_write_function =
+    write_function<T> and requires { typename T::write_only_t; };
+
+template <typename T>
+using is_read_only =
+    std::bool_constant<read_only_write_function<typename T::write_fn_t>>;
+
+template <typename T>
+using is_write_only =
+    std::bool_constant<write_only_write_function<typename T::write_fn_t>>;
 } // namespace groov

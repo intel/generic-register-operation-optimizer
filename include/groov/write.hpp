@@ -17,7 +17,6 @@
 
 #include <boost/mp11/algorithm.hpp>
 
-#include <limits>
 #include <type_traits>
 #include <utility>
 
@@ -26,6 +25,17 @@ namespace detail {
 template <typename Register, typename Bus, auto Mask, auto IdMask, auto IdValue,
           typename V>
 auto write(V value) -> async::sender auto {
+    STATIC_ASSERT(((Mask | IdMask) == Register::template mask<decltype(Mask)> or
+                   not is_write_only<Register>::value),
+                  "Write to register {} containing write-only bits which are "
+                  "not provided",
+                  Register::name);
+
+    STATIC_ASSERT((Mask == Register::template mask<decltype(Mask)> or
+                   not is_read_only<Register>::value),
+                  "Write to register {} containing read-only bits",
+                  Register::name);
+
     return Bus::template write<Register::name, Mask, IdMask, IdValue>(
         get_address<Register>(), value);
 }
@@ -63,6 +73,20 @@ template <typename L> CONSTEVAL auto check_read_only() -> void {
         L{});
 }
 
+template <typename F> CONSTEVAL auto check_writeonly_field() {
+    STATIC_ASSERT(not write_only_write_function<typename F::write_fn_t>,
+                  "Attempting to write but missing a write-only field: {}",
+                  F::name);
+}
+
+template <typename L> CONSTEVAL auto check_write_only() -> void {
+    [[maybe_unused]] auto r = stdx::for_each(
+        []<typename... Fs>(boost::mp11::mp_list<Fs...>) {
+            (check_writeonly_field<Fs>(), ...);
+        },
+        L{});
+}
+
 template <typename T>
 concept write_spec_like =
     requires { typename std::remove_cvref_t<T>::is_write_spec; };
@@ -87,6 +111,7 @@ auto write(Spec const &s) -> async::sender auto {
         boost::mp11::mp_transform<boost::mp11::mp_set_difference,
                                   all_fields_per_reg_t,
                                   written_fields_per_reg_t>;
+    detail::check_write_only<unwritten_fields_per_reg_t>();
 
     using field_masks_t = boost::mp11::mp_transform<detail::compute_mask_t,
                                                     typename Spec::value_t,

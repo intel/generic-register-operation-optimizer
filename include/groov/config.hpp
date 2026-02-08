@@ -112,6 +112,10 @@ struct field : named_container<Name, SubFields...> {
     template <std::unsigned_integral RegType>
     constexpr static auto mask = stdx::bit_mask<RegType, Msb, Lsb>();
 
+    template <std::unsigned_integral RegType>
+    constexpr static auto children_mask =
+        (RegType{} | ... | SubFields::template mask<T>);
+
     constexpr static auto field_mask = static_cast<type_t>(
         stdx::bit_mask<stdx::underlying_type_t<type_t>, Msb - Lsb>());
 
@@ -160,9 +164,13 @@ struct reg : field<Name, T, std::numeric_limits<T>::digits - 1, 0u, WriteFn,
     using address_t = decltype(detail::maybe_invoke(Address));
     constexpr static auto address = Address;
 
+    constexpr static auto children_mask =
+        field<Name, T, std::numeric_limits<T>::digits - 1, 0u, WriteFn,
+              Fields...>::template children_mask<T>;
+
     constexpr static T unused_mask =
         identity_write_function<WriteFn>
-            ? reg::template mask<T> & ~(T{} | ... | Fields::template mask<T>)
+            ? reg::template mask<T> & ~children_mask
             : T{};
     constexpr static auto unused_identity_value =
         detail::compute_identity_value<WriteFn, T, unused_mask>();
