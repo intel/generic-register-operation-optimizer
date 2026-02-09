@@ -71,6 +71,8 @@ constexpr auto parent(path<P, Ps...> const &) {
 
 constexpr inline auto parent(path<> const &) { return path<>{}; }
 
+template <typename Path> using parent_t = decltype(parent(Path{}));
+
 template <stdx::ct_string S, stdx::ct_string... Parts>
 CONSTEVAL auto make_path() -> pathlike auto {
     constexpr auto p = stdx::split<S, '.'>();
