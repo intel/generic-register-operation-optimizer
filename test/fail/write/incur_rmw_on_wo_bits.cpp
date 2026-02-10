@@ -1,4 +1,4 @@
-#include "dummy_bus.hpp"
+#include "../dummy_bus.hpp"
 
 #include <groov/config.hpp>
 #include <groov/identity.hpp>
@@ -12,7 +12,10 @@
 
 #include <cstdint>
 
-// EXPECT: Attempting to write but missing a write-only field: field1
+// indirect read from unused bits that are marked write-only by writing to a
+// different field in the same register, incurring read-modify-write
+
+// EXPECT: Write to register reg would incur RMW on write-only bits
 
 namespace {
 struct write_bus : dummy_bus {
@@ -22,17 +25,15 @@ struct write_bus : dummy_bus {
     }
 };
 
-using F0 = groov::field<"field0", std::uint8_t, 0, 0,
-                        groov::write_only<groov::w::replace>>;
-using F1 = groov::field<"field1", std::uint8_t, 1, 1,
-                        groov::write_only<groov::w::replace>>;
+using F = groov::field<"field", std::uint8_t, 0, 0, groov::w::replace>;
 
 std::uint32_t data{};
-using R = groov::reg<"reg", std::uint32_t, &data, groov::w::replace, F0, F1>;
+using R = groov::reg<"reg", std::uint32_t, &data,
+                     groov::write_only<groov::w::replace>, F>;
 using G = groov::group<"group", write_bus, R>;
 } // namespace
 
 auto main() -> int {
     using namespace groov::literals;
-    [[maybe_unused]] auto x = sync_write(G{}("reg.field0"_f = 1));
+    [[maybe_unused]] auto x = sync_write(G{}("reg.field"_f = 1));
 }

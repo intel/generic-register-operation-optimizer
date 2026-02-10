@@ -9,8 +9,11 @@
 #include <async/sync_wait.hpp>
 #include <async/then.hpp>
 
+#include <stdx/bit.hpp>
+
 #include <catch2/catch_test_macros.hpp>
 
+#include <array>
 #include <cstdint>
 
 namespace {
@@ -470,4 +473,55 @@ TEST_CASE("clear with field_proxy", "[write]") {
              | async::sync_wait();
     CHECK(r);
     CHECK(data0 == 0b1'0000'1u);
+}
+
+namespace {
+struct be_bus {
+    template <stdx::ct_string, auto, auto, auto>
+    static auto write(auto addr, auto) -> async::sender auto {
+        return async::just_result_of([=] { *addr = 42; });
+    }
+
+    template <stdx::ct_string, auto>
+    static auto read(auto) -> async::sender auto {
+        return async::just_result_of([] { return 42; });
+    }
+
+    template <typename RegType>
+    CONSTEVAL static auto transform_mask(RegType mask) -> RegType {
+        using A = std::array<std::uint8_t, sizeof(RegType)>;
+        auto arr = stdx::bit_cast<A>(mask);
+        for (auto &i : arr) {
+            i = i == 0 ? 0u : 0xffu;
+        }
+        return stdx::bit_cast<RegType>(arr);
+    }
+};
+
+using FB0 = groov::field<"field0", std::uint8_t, 7, 0>;
+using FB1_WO = groov::field<"field1", std::uint8_t, 8, 8,
+                            groov::write_only<groov::w::replace>>;
+
+std::uint32_t data3{};
+using R3 = groov::reg<"reg3", std::uint32_t, &data3,
+                      groov::write_only<groov::w::replace>, FB0>;
+using R4 =
+    groov::reg<"reg4", std::uint32_t, &data3, groov::w::replace, FB0, FB1_WO>;
+
+using GBE = groov::group<"group", be_bus, R3, R4>;
+constexpr auto grp_be = GBE{};
+} // namespace
+
+TEST_CASE("write a field in a WO register under a byte-enable bus", "[write]") {
+    using namespace groov::literals;
+    CHECK(groov::write(grp_be("reg3.field0"_r = 1)) | async::sync_wait());
+    CHECK(data3 == 42);
+}
+
+TEST_CASE("write a field in a register containing WO fields which won't be "
+          "written under a byte-enable bus",
+          "[write]") {
+    using namespace groov::literals;
+    CHECK(groov::write(grp_be("reg4.field0"_r = 1)) | async::sync_wait());
+    CHECK(data3 == 42);
 }

@@ -93,10 +93,7 @@ template <identity_write_function T> struct read_only : T {
     using read_only_t = int;
 };
 
-template <typename T>
-concept no_identity_write_function = not identity_write_function<T>;
-
-template <no_identity_write_function T> struct write_only : T {
+template <write_function T> struct write_only : T {
     using write_only_t = int;
 };
 

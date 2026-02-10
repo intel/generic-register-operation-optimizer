@@ -339,4 +339,13 @@ struct set_t {};
 constexpr auto set = set_t{};
 struct clear_t {};
 constexpr auto clear = clear_t{};
+
+template <typename Bus, typename RegType>
+CONSTEVAL auto transform_mask(RegType mask) -> RegType {
+    if constexpr (requires { Bus::transform_mask(RegType{}); }) {
+        return Bus::transform_mask(mask);
+    } else {
+        return std::numeric_limits<RegType>::max();
+    }
+}
 } // namespace groov

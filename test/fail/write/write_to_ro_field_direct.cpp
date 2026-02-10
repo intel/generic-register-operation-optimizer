@@ -1,4 +1,4 @@
-#include "dummy_bus.hpp"
+#include "../dummy_bus.hpp"
 
 #include <groov/config.hpp>
 #include <groov/identity.hpp>
@@ -12,7 +12,9 @@
 
 #include <cstdint>
 
-// EXPECT: Attempting to write to a read-only field: field_ro
+// write to a field that is marked read-only
+
+// EXPECT: Attempting to write to a read-only field: field
 
 namespace {
 struct write_bus : dummy_bus {
@@ -22,16 +24,15 @@ struct write_bus : dummy_bus {
     }
 };
 
-using F0 = groov::field<"field_ro", std::uint8_t, 0, 0,
-                        groov::read_only<groov::w::ignore>>;
-using F1 = groov::field<"field_rw", std::uint32_t, 31, 1>;
+using F = groov::field<"field", std::uint8_t, 0, 0,
+                       groov::read_only<groov::w::ignore>>;
 
 std::uint32_t data{};
-using R = groov::reg<"reg", std::uint32_t, &data, groov::w::replace, F0, F1>;
+using R = groov::reg<"reg", std::uint32_t, &data, groov::w::replace, F>;
 using G = groov::group<"group", write_bus, R>;
 } // namespace
 
 auto main() -> int {
     using namespace groov::literals;
-    [[maybe_unused]] auto x = sync_write(G{}("reg"_r = 0xffff'ffff));
+    [[maybe_unused]] auto x = sync_write(G{}("reg.field"_f = 1));
 }

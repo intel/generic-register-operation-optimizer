@@ -17,30 +17,10 @@ add_fail_tests(
     sync_read_nontrivial
     sync_write_nontrivial
     sync_write_nontrivial_nodiscard
-    write_only_field_with_identity
     write_spec_literal_index)
 
 target_compile_options(EXPECT_FAIL.sync_write_nontrivial_nodiscard.cpp
                        PRIVATE -Werror)
 
-function(add_formatted_error_tests)
-    add_fail_tests(
-        read_other_write_only_bits
-        read_write_only_field
-        write_read_only_field
-        write_reg_partial_read_only
-        write_some_read_only_bits
-        write_some_write_only_bits
-        write_some_write_only_fields)
-endfunction()
-
-if(${CMAKE_CXX_STANDARD} GREATER_EQUAL 20)
-    if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang"
-       AND ${CMAKE_CXX_COMPILER_VERSION} VERSION_GREATER_EQUAL 15)
-        add_formatted_error_tests()
-    endif()
-    if(${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU" AND ${CMAKE_CXX_COMPILER_VERSION}
-                                                   VERSION_GREATER_EQUAL 13.2)
-        add_formatted_error_tests()
-    endif()
-endif()
+add_subdirectory(read)
+add_subdirectory(write)

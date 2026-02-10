@@ -25,15 +25,10 @@ namespace detail {
 template <typename Register, typename Bus, auto Mask, auto IdMask, auto IdValue,
           typename V>
 auto write(V value) -> async::sender auto {
-    STATIC_ASSERT(((Mask | IdMask) == Register::template mask<decltype(Mask)> or
-                   not is_write_only<Register>::value),
-                  "Write to register {} containing write-only bits which are "
-                  "not provided",
-                  Register::name);
-
-    STATIC_ASSERT((Mask == Register::template mask<decltype(Mask)> or
-                   not is_read_only<Register>::value),
-                  "Write to register {} containing read-only bits",
+    constexpr auto write_mask = transform_mask<Bus>(Mask | IdMask);
+    STATIC_ASSERT(write_mask == (Mask | IdMask) or
+                      not is_write_only<Register>::value,
+                  "Write to register {} would incur RMW on write-only bits",
                   Register::name);
 
     return Bus::template write<Register::name, Mask, IdMask, IdValue>(
@@ -61,11 +56,17 @@ using compute_reg_id_value_t =
     std::integral_constant<typename Reg::type_t, Reg::unused_identity_value>;
 
 template <typename F> CONSTEVAL auto check_readonly_field() {
-    STATIC_ASSERT(not read_only_write_function<typename F::write_fn_t>,
-                  "Attempting to write to a read-only field: {}", F::name);
+    if constexpr (registerlike<F>) {
+        STATIC_ASSERT(not read_only_write_function<typename F::write_fn_t>,
+                      "Attempting to write to a read-only register: {}",
+                      F::name);
+    } else {
+        STATIC_ASSERT(not read_only_write_function<typename F::write_fn_t>,
+                      "Attempting to write to a read-only field: {}", F::name);
+    }
 }
 
-template <typename L> CONSTEVAL auto check_read_only() -> void {
+template <typename Bus, typename L> CONSTEVAL auto check_read_only() -> void {
     [[maybe_unused]] auto r = stdx::for_each(
         []<typename... Fs>(boost::mp11::mp_list<Fs...>) {
             (check_readonly_field<Fs>(), ...);
@@ -73,18 +74,22 @@ template <typename L> CONSTEVAL auto check_read_only() -> void {
         L{});
 }
 
-template <typename F> CONSTEVAL auto check_writeonly_field() {
-    STATIC_ASSERT(not write_only_write_function<typename F::write_fn_t>,
-                  "Attempting to write but missing a write-only field: {}",
-                  F::name);
+template <typename F, auto Mask> CONSTEVAL auto check_rmw_field() {
+    constexpr auto mask_overlap = F::template mask<decltype(Mask)> & Mask;
+    STATIC_ASSERT(not write_only_write_function<typename F::write_fn_t> or
+                      not mask_overlap,
+                  "Write would incur RMW on a write-only field: {}", F::name);
 }
 
-template <typename L> CONSTEVAL auto check_write_only() -> void {
+template <typename Bus, typename L, typename Masks>
+CONSTEVAL auto check_rmw() -> void {
     [[maybe_unused]] auto r = stdx::for_each(
-        []<typename... Fs>(boost::mp11::mp_list<Fs...>) {
-            (check_writeonly_field<Fs>(), ...);
+        []<typename... Fs>(boost::mp11::mp_list<Fs...>, auto mask) {
+            [[maybe_unused]] constexpr auto write_mask =
+                transform_mask<Bus>(mask());
+            (check_rmw_field<Fs, write_mask>(), ...);
         },
-        L{});
+        L{}, Masks{});
 }
 
 template <typename T>
@@ -100,7 +105,6 @@ auto write(Spec const &s) -> async::sender auto {
 
     using written_fields_per_reg_t =
         boost::mp11::mp_transform<detail::all_fields_t, fields_per_reg_t>;
-    detail::check_read_only<written_fields_per_reg_t>();
 
     using all_fields_per_reg_t = boost::mp11::mp_transform<
         detail::all_fields_t,
@@ -111,11 +115,14 @@ auto write(Spec const &s) -> async::sender auto {
         boost::mp11::mp_transform<boost::mp11::mp_set_difference,
                                   all_fields_per_reg_t,
                                   written_fields_per_reg_t>;
-    detail::check_write_only<unwritten_fields_per_reg_t>();
 
     using field_masks_t = boost::mp11::mp_transform<detail::compute_mask_t,
                                                     typename Spec::value_t,
                                                     written_fields_per_reg_t>;
+
+    detail::check_read_only<typename Spec::bus_t, fields_per_reg_t>();
+    detail::check_rmw<typename Spec::bus_t, unwritten_fields_per_reg_t,
+                      field_masks_t>();
 
     using identity_masks_t =
         boost::mp11::mp_transform<detail::compute_id_mask_t,

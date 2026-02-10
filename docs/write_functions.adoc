@@ -268,9 +268,6 @@ A field may be denoted write-only by marking its write function as such:
 using FW = groov::field<"f", std::uint8_t, 1, 1, groov::write_only<groov::w::replace>>;
 ----
 
-A write function wrapped with `write_only` in this way _cannot_ have an `id_spec` that
-provides its identity bits.
-
 If a field is marked `write_only`, it's a compile-time error to attempt to read
 from it:
 
@@ -280,9 +277,19 @@ groov::read(G{}("reg.f"_f)) | async::sync_wait();
 // compile error: "Attempting to read from a write-only field: f"
 ----
 
-Because writing happens to a register, not an individual field, it is also an
-error to write without "covering" all the bits marked as write-only. Those bits
-might be in other fields:
+A write function wrapped with `write_only` may or may not have an `id_spec` that
+provides its "safe-to-write" identity bits. This depends on hardware semantics:
+a field might be edge-triggered by writing 1, with 0 doing nothing, or the
+reverse, or it might not have an identity value.
+
+Because writing happens to a register, not an individual field, it may also be
+an error to write without "covering" all the bits marked as write-only --
+because this would incur a read-modify-write (RMW).
+
+NOTE: Which bits are required are affected by how a bus optionally implements
+`transform_mask`.
+
+The bits in question might be in other fields:
 
 [source,cpp]
 ----
@@ -292,7 +299,7 @@ using F1 = groov::field<"f1", std::uint8_t, 1, 1, groov::write_only<groov::w::re
 using R = groov::reg<"reg", std::uint32_t, addr, groov::w::ignore, F0, F1>;
 
 groov::write(G{}("reg.f0"_f = 1)) | async::sync_wait();
-// compile error: "Attempting to write but missing a write-only field: f1"
+// compile error: "Write would incur RMW on a write-only field: f1"
 ----
 
 Or they might be unused by fields, but marked by the register itself:
@@ -303,7 +310,7 @@ using F = groov::field<"f0", std::uint8_t, 0, 0, groov::write_only<groov::w::rep
 using R = groov::reg<"reg", std::uint32_t, addr, groov::write_only<groov::w::replace>, F>;
 
 groov::write(G{}("reg.f"_f = 1)) | async::sync_wait();
-// compile error: "Write to register reg containing write-only bits which are not provided"
+// compile error: "Write to register reg would incur RMW on write-only bits"
 ----
 
 This second case is probably an error in definition: a write-only register
@@ -311,6 +318,13 @@ should probably either be fully covered by fields, or contain no fields. The
 normal useful case for a sparse "write-only" register is that it has an `ignore`
 write function. This avoids read-modify-write and means any unused bits just
 get written as zero.
+
+NOTE: `read_only` and `write_only` are not symmetric concepts! It is permitted
+to write -- but only indirectly by writing other fields in the same register --
+to `read_only` fields, using their identity values: such a write is safe and
+would have no effect. However, it is *not* permitted to read from a `write_only`
+field either directly or indirectly, because there is no stored data there to
+read.
 
 === Generic writing: `set` and `clear`
 
