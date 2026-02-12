@@ -25,13 +25,14 @@ namespace detail {
 template <typename Register, typename Bus, auto Mask, auto IdMask, auto IdValue,
           typename V>
 auto write(V value) -> async::sender auto {
-    constexpr auto write_mask = transform_mask<Bus>(Mask | IdMask);
-    STATIC_ASSERT(write_mask == (Mask | IdMask) or
+    constexpr auto write_mask = transform_mask<Bus>(Mask);
+    constexpr auto id_mask = write_mask & IdMask;
+    STATIC_ASSERT(write_mask == (Mask | id_mask) or
                       not is_write_only<Register>::value,
                   "Write to register {} would incur RMW on write-only bits",
                   Register::name);
 
-    return Bus::template write<Register::name, Mask, IdMask, IdValue>(
+    return Bus::template write<Register::name, Mask, id_mask, IdValue>(
         get_address<Register>(), value);
 }
 

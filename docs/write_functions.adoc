@@ -319,13 +319,6 @@ normal useful case for a sparse "write-only" register is that it has an `ignore`
 write function. This avoids read-modify-write and means any unused bits just
 get written as zero.
 
-NOTE: `read_only` and `write_only` are not symmetric concepts! It is permitted
-to write -- but only indirectly by writing other fields in the same register --
-to `read_only` fields, using their identity values: such a write is safe and
-would have no effect. However, it is *not* permitted to read from a `write_only`
-field either directly or indirectly, because there is no stored data there to
-read.
-
 === Generic writing: `set` and `clear`
 
 Fields with an appropriate `set_spec` and/or `clear_spec` in their
