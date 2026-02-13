@@ -178,7 +178,7 @@ groov::test::reset_store(grp0);
 
 === `set_value`
 
-Set the value in the store for the specified register. The register is specified via a path. The value will be cast to the register's value type when it is stored.
+Set the value in the store for the specified register. The register is specified via a path. The value will be cast to the register's value type when it is stored. `set_value` can also take a `write_spec` for the value. If a `write_spec` is provided, the value of `path` will be extracted and cast to the register's value type.
 
 [source,cpp]
 ----
@@ -197,6 +197,17 @@ void groov::test::set_value(Group, P path, V value);
 groov::test::set_value<G0>("reg1"_r, 0xdeadbeef);
 // or
 groov::test::set_value(grp0, "reg1"_r, 0xdeadbeef);
+----
+====
+
+.Example
+====
+[source,cpp]
+----
+auto ws = G0{}( "reg1"_r( "f0"_f = 0x1, "f4"_f = 0x33));
+groov::test::set_value<G0>("reg1"_r, ws);
+// or
+groov::test::set_value(grp0, "reg1"_r, ws);
 ----
 ====
 
@@ -224,6 +235,35 @@ auto groov::test::get_value(Group, P path) -> std::optional<register-type>;
 auto v = groov::test::get_value<G0>("reg1"_r);
 // or
 auto v = groov::test::get_value(grp0, "reg1"_r);
+----
+====
+
+
+=== `get_write_spec`
+
+Get the value in the store for the specified register as the associated `write_spec`. The register is specified via a path.  The value will be returned as an `std::optional<write-spec-like>`. This makes accessing fields more convienient.
+
+If no value has been set in the store for the specified register path, the returned `optional` will be disengaged.
+
+[source,cpp]
+----
+template <typename Group, pathlike P>
+auto groov::test::get_write_spec(P path) -> std::optional<write-spec-like>;
+
+template <typename Group, pathlike P>
+auto groov::test::get_write_spec(Group, P path) -> std::optional<write-spec-like>;
+----
+
+
+.Example
+====
+[source,cpp]
+----
+auto ws = groov::test::get_write_spec<G0>("reg1"_r);
+// or
+auto ws = groov::test::get_write_spec(grp0, "reg1"_r);
+REQUIRE(ws);
+CHECK((*ws)["f4"_f] == 0x33);
 ----
 ====
 

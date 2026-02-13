@@ -151,6 +151,18 @@ void set_value(Group, P p, V value) {
     set_value<Group>(p, value);
 }
 
+template <typename Group, pathlike P, typename W>
+    requires requires { typename std::remove_cvref_t<W>::is_write_spec; }
+void set_value(P p, W ws) {
+    set_value<Group>(p, ws[p]);
+}
+
+template <typename Group, pathlike P, typename W>
+    requires requires { typename std::remove_cvref_t<W>::is_write_spec; }
+void set_value(Group, P p, W ws) {
+    set_value<Group>(p, ws);
+}
+
 template <typename Group, pathlike P> auto get_value(P p) {
     using Store = store<Group::name>;
     using Reg = decltype(Group::resolve(p));
@@ -161,6 +173,23 @@ template <typename Group, pathlike P> auto get_value(P p) {
 
 template <typename Group, pathlike P> auto get_value(Group, P p) {
     return get_value<Group>(p);
+}
+
+template <typename Group, pathlike P> auto get_write_spec(P p) {
+    using reg_t = typename decltype(get_value<Group>(p))::value_type;
+    using return_value_t = decltype(Group{} / (p = reg_t{}));
+    using return_t = std::optional<return_value_t>;
+
+    auto v = get_value<Group>(p);
+    if (v) {
+        return return_t{Group{} / (p = v.value())};
+    } else {
+        return return_t{};
+    }
+}
+
+template <typename Group, pathlike P> auto get_write_spec(Group, P p) {
+    return get_write_spec<Group>(p);
 }
 
 template <typename Group, pathlike P, typename F>

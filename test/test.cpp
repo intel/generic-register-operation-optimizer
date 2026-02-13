@@ -74,6 +74,39 @@ constexpr auto grp1 = G1{};
 
 } // namespace
 
+TEST_CASE("can get a write_spec from a test_bus register", "[test]") {
+    using namespace groov::literals;
+
+    data0 = 0xa5a5'a5a5u;
+
+    groov::test::reset_store<G0>();
+    groov::test::set_value<G0>("reg0"_r, 0x5a5a5a5a);
+
+    auto ws = groov::test::get_write_spec<G0>("reg0"_r);
+
+    CHECK(data0 == 0xa5a5'a5a5u);
+    REQUIRE(ws);
+    CHECK((*ws)["field1"_r] == 0xd);
+}
+
+TEST_CASE("can use a write_spec to set a test_bus register", "[test]") {
+    using namespace groov::literals;
+
+    data0 = 0xa5a5'a5a5u;
+
+    groov::test::reset_store<G0>();
+
+    auto ws =
+        G0{}("reg0"_r("field0"_f = 0x1, "field1"_f = 0xa, "field2"_f = 0x2));
+
+    groov::test::set_value<G0>("reg0"_r, ws);
+
+    auto v = groov::test::get_value<G0>("reg0"_r);
+
+    REQUIRE(v);
+    CHECK(v.value() == 0x55);
+}
+
 TEST_CASE("read a test_bus register", "[test]") {
     using namespace groov::literals;
 
