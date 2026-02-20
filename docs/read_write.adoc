@@ -170,3 +170,37 @@ and bits set in `IdMask` _may_ be safely written using the corresponding bits in
 NOTE: `Mask` and `IdMask` are disjoint sets of bits. Therefore `Idvalue` and
 `value` are also disjoint sets of bits. Bits that are zero in `IdMask` are also
 zero in `IdValue`.
+
+==== Byte-enabled buses
+
+A bus may also be "byte-enabled", e.g. a bus with a 32-bit data width might,
+according to the mask, only need to read/write say an 8-bit value, and could
+potentially manage this more efficiently. A bus that is byte-enabled in this way
+can implement a `constexpr` `transform_mask` function to signal to the `groov`
+machinery how it handles reads and writes.
+
+[source,cpp]
+----
+struct byte_enabled_bus {
+  // as well as implementing read and write...
+
+  // implement transform_mask: given a mask to read/write,
+  // return the actual mask that the bus will use
+  template <typename RegType>
+  consteval static auto transform_mask(RegType mask) -> RegType {
+    using A = std::array<std::uint8_t, sizeof(RegType)>;
+    auto arr = std::bit_cast<A>(mask);
+    for (auto &i : arr) { // if any byte contains data, write that whole byte
+      i = i == 0 ? 0u : 0xffu;
+    }
+    return std::bit_cast<RegType>(arr);
+  }
+};
+----
+
+This function is optional: if a bus doesn't implement it, `groov` will assume
+that it is not byte-enabled and will read/write the whole register datatype
+size.
+
+NOTE: `transform_mask` interacts with `groov::read` and `groov::write` and is
+particularly important when dealing with write-only fields.

@@ -29,11 +29,6 @@ namespace groov {
 namespace detail {
 template <typename Register, typename Group, typename Mask>
 auto read() -> async::sender auto {
-    STATIC_ASSERT(
-        (not is_write_only<Register>::value or
-         Mask::value == Register::template mask<typename Mask::value_type>),
-        "Read from register {} containing write-only bits", Register::name);
-
     using bus_t = typename Group::bus_t;
     return bus_t::template read<Register::name, Mask::value>(
         get_address<Register>());
@@ -64,30 +59,43 @@ template <typename Group> struct to_register_q {
 
 template <typename Register> using to_fields = typename Register::children_t;
 
-template <typename Group, typename Paths>
-CONSTEVAL auto check_write_only() -> void {
-    using registers_t = boost::mp11::mp_unique<
-        boost::mp11::mp_transform_q<to_register_q<Group>, Paths>>;
-
-    using fields_t = boost::mp11::mp_apply<
-        boost::mp11::mp_append,
-        boost::mp11::mp_transform<to_fields, registers_t>>;
-
-    using write_only_fields_t =
-        boost::mp11::mp_copy_if<fields_t, is_write_only>;
-
-    stdx::template_for_each<write_only_fields_t>([]<typename F>() {
-        STATIC_ASSERT(false, "Attempting to read from a write-only field: {} ",
+template <typename F, auto Mask> CONSTEVAL auto check_writeonly_field() {
+    constexpr auto mask_overlap = F::template mask<decltype(Mask)> & Mask;
+    if constexpr (registerlike<F>) {
+        STATIC_ASSERT(not write_only_write_function<typename F::write_fn_t> or
+                          not mask_overlap,
+                      "Attempting to read from a write-only register: {}",
                       F::name);
-    });
+    } else {
+        STATIC_ASSERT(not write_only_write_function<typename F::write_fn_t> or
+                          not mask_overlap,
+                      "Attempting to read from a write-only field: {}",
+                      F::name);
+    }
 }
+
+template <typename Bus, typename L, typename Masks>
+CONSTEVAL auto check_write_only() -> void {
+    [[maybe_unused]] auto r = stdx::for_each(
+        []<typename... Fs>(boost::mp11::mp_list<Fs...>, auto mask) {
+            constexpr auto read_mask = transform_mask<Bus>(mask());
+            (check_writeonly_field<Fs, read_mask>(), ...);
+        },
+        L{}, Masks{});
+}
+
 } // namespace detail
 
 template <typename Group, typename Paths>
 constexpr auto read(read_spec<Group, Paths> const &s) -> async::sender auto {
-    detail::check_write_only<Group, Paths>();
-
     using Spec = decltype(to_write_spec(s));
+
+    using fields_per_reg_t = boost::mp11::mp_transform_q<
+        detail::fields_for_reg_q<typename Spec::paths_t>,
+        typename Spec::value_t>;
+
+    using read_fields_per_reg_t =
+        boost::mp11::mp_transform<detail::all_fields_t, fields_per_reg_t>;
 
     using register_values_t =
         boost::mp11::mp_apply<boost::mp11::mp_list, typename Spec::value_t>;
@@ -95,6 +103,10 @@ constexpr auto read(read_spec<Group, Paths> const &s) -> async::sender auto {
     using field_masks_t = boost::mp11::mp_transform_q<
         detail::field_mask_for_reg_q<typename Spec::paths_t>,
         register_values_t>;
+
+    detail::check_write_only<
+        typename Spec::bus_t, read_fields_per_reg_t,
+        boost::mp11::mp_apply<stdx::tuple, field_masks_t>>();
 
     return []<typename... Rs, typename... Ms>(boost::mp11::mp_list<Rs...>,
                                               boost::mp11::mp_list<Ms...>) {

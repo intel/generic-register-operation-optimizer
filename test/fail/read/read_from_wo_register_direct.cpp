@@ -1,4 +1,4 @@
-#include "dummy_bus.hpp"
+#include "../dummy_bus.hpp"
 
 #include <groov/config.hpp>
 #include <groov/identity.hpp>
@@ -10,7 +10,9 @@
 
 #include <cstdint>
 
-// EXPECT: Read from register reg containing write-only bits
+// read from a register that is marked write-only
+
+// EXPECT: Attempting to read from a write-only register: reg
 
 namespace {
 struct read_bus : dummy_bus {
@@ -20,15 +22,13 @@ struct read_bus : dummy_bus {
     }
 };
 
-using F = groov::field<"field", std::uint8_t, 0, 0, groov::w::replace>;
-
 std::uint32_t data{};
 using R = groov::reg<"reg", std::uint32_t, &data,
-                     groov::write_only<groov::w::replace>, F>;
+                     groov::write_only<groov::w::replace>>;
 using G = groov::group<"group", read_bus, R>;
 } // namespace
 
 auto main() -> int {
     using namespace groov::literals;
-    [[maybe_unused]] auto x = sync_read(G{}("reg.field"_f));
+    [[maybe_unused]] auto x = sync_read(G{}("reg"_f));
 }

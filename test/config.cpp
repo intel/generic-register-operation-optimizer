@@ -4,7 +4,14 @@
 
 #include <async/concepts.hpp>
 
+#include <stdx/bit.hpp>
+
 #include <catch2/catch_test_macros.hpp>
+
+#include <array>
+#include <concepts>
+#include <cstdint>
+#include <type_traits>
 
 namespace {
 struct bus {
@@ -161,4 +168,46 @@ TEST_CASE("all fields inside a register with fields and subfields",
     STATIC_REQUIRE(
         std::is_same_v<groov::detail::all_fields_t<boost::mp11::mp_list<R>>,
                        boost::mp11::mp_list<SubF00, SubF01, F1>>);
+}
+
+namespace {
+struct be_bus {
+    struct sender {
+        using is_sender = void;
+    };
+
+    template <stdx::ct_string, auto>
+    static auto read(auto...) -> async::sender auto {
+        return sender{};
+    }
+    template <stdx::ct_string, auto...>
+    static auto write(auto...) -> async::sender auto {
+        return sender{};
+    }
+
+    template <typename RegType>
+    CONSTEVAL static auto transform_mask(RegType mask) -> RegType {
+        using A = std::array<std::uint8_t, sizeof(RegType)>;
+        auto arr = stdx::bit_cast<A>(mask);
+        for (auto &i : arr) {
+            i = i == 0 ? 0u : 0xffu;
+        }
+        return stdx::bit_cast<RegType>(arr);
+    }
+};
+} // namespace
+
+TEST_CASE("bus may support byte enables through transform_mask", "[config]") {
+    STATIC_CHECK(groov::transform_mask<be_bus>(std::uint32_t{0b1u}) == 0xffu);
+    STATIC_CHECK(std::same_as<decltype(groov::transform_mask<be_bus>(
+                                  std::uint32_t{0b1u})),
+                              std::uint32_t>);
+}
+
+TEST_CASE("bus without transform_mask returns all bits set", "[config]") {
+    STATIC_CHECK(groov::transform_mask<bus>(std::uint32_t{0b1u}) ==
+                 0xffff'ffffu);
+    STATIC_CHECK(
+        std::same_as<decltype(groov::transform_mask<bus>(std::uint32_t{0b1u})),
+                     std::uint32_t>);
 }

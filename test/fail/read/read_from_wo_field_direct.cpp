@@ -1,4 +1,4 @@
-#include "dummy_bus.hpp"
+#include "../dummy_bus.hpp"
 
 #include <groov/config.hpp>
 #include <groov/identity.hpp>
@@ -9,6 +9,8 @@
 #include <async/just.hpp>
 
 #include <cstdint>
+
+// read from a field that is marked write-only
 
 // EXPECT: Attempting to read from a write-only field: field
 
