@@ -52,17 +52,13 @@ template <stdx::ct_string Name, named... Ts> struct named_container {
     constexpr static auto name = Name;
     using name_t = stdx::cts_t<Name>;
     using children_t = boost::mp11::mp_list<Ts...>;
-
-    template <stdx::ct_string S>
-    using child_t = boost::mp11::mp_front<
-        boost::mp11::mp_copy_if_q<children_t, has_name_q<S>>>;
 };
 
 template <typename T>
 concept containerlike = requires { typename T::children_t; };
 
 template <typename C, stdx::ct_string Name>
-using get_child = typename C::template child_t<Name>;
+using get_child = decltype(resolve(C{}, path<Name>{}));
 
 template <typename T>
 concept fieldlike =
@@ -78,7 +74,7 @@ constexpr auto resolve_matches([[maybe_unused]] P p) {
     } else if constexpr (boost::mp11::mp_size<L>::value > 1) {
         return ambiguous_t{};
     } else {
-        return recursive_resolve<boost::mp11::mp_front<L>>(p);
+        return resolve(boost::mp11::mp_front<L>{}, p);
     }
 }
 
@@ -232,17 +228,15 @@ struct group : named_container<Name, Registers...> {
 };
 
 namespace detail {
-template <typename L> struct any_resolves_q {
-    template <pathlike P> using fn = boost::mp11::mp_any_of_q<L, resolves_q<P>>;
+template <typename G> struct group_resolves_q {
+    template <pathlike P> using fn = is_resolvable_t<G, P>;
 };
 
 template <typename G, typename L> constexpr auto check_valid_config() -> void {
     static_assert(boost::mp11::mp_is_set<L>::value,
                   "Duplicate path passed to group");
-    static_assert(
-        boost::mp11::mp_all_of_q<L,
-                                 any_resolves_q<typename G::children_t>>::value,
-        "Unresolvable path passed to group");
+    static_assert(boost::mp11::mp_all_of_q<L, group_resolves_q<G>>::value,
+                  "Unresolvable path passed to group");
     stdx::template_for_each<L>([]<typename P>() {
         using rest = boost::mp11::mp_remove<L, P>;
         static_assert(boost::mp11::mp_none_of_q<rest, resolves_q<P>>::value,
@@ -251,8 +245,7 @@ template <typename G, typename L> constexpr auto check_valid_config() -> void {
 }
 
 template <typename Group> struct register_for_path_q {
-    template <pathlike P>
-    using fn = typename Group::template child_t<root(P{})>;
+    template <pathlike P> using fn = get_child<Group, root(P{})>;
 };
 
 template <typename Group> struct register_for_paths_q {

@@ -47,7 +47,7 @@ TEST_CASE("flatten_paths (nothing to flatten)", "[write_spec]") {
     auto pp = groov::detail::flatten_paths(p);
 
     using R = std::remove_cvref_t<decltype(pp)>;
-    STATIC_REQUIRE(stdx::is_specialization_of_v<R, stdx::tuple>);
+    STATIC_CHECK(stdx::is_specialization_of_v<R, stdx::tuple>);
 
     using P = stdx::tuple_element_t<0, R>;
     STATIC_CHECK(std::is_same_v<typename P::path_t, decltype("f"_f)>);
@@ -63,8 +63,8 @@ TEST_CASE("flatten_paths (single depth)", "[write_spec]") {
     auto pp = groov::detail::flatten_paths(p);
 
     using R = std::remove_cvref_t<decltype(pp)>;
-    STATIC_REQUIRE(stdx::is_specialization_of_v<R, stdx::tuple>);
-    STATIC_REQUIRE(stdx::tuple_size_v<R> == 1);
+    STATIC_CHECK(stdx::is_specialization_of_v<R, stdx::tuple>);
+    STATIC_CHECK(stdx::tuple_size_v<R> == 1);
 
     using P = stdx::tuple_element_t<0, R>;
     STATIC_CHECK(std::is_same_v<typename P::path_t, decltype("r.f"_f)>);
@@ -80,8 +80,8 @@ TEST_CASE("flatten_paths (multi depth)", "[write_spec]") {
     auto pp = groov::detail::flatten_paths(p);
 
     using R = std::remove_cvref_t<decltype(pp)>;
-    STATIC_REQUIRE(stdx::is_specialization_of_v<R, stdx::tuple>);
-    STATIC_REQUIRE(stdx::tuple_size_v<R> == 1);
+    STATIC_CHECK(stdx::is_specialization_of_v<R, stdx::tuple>);
+    STATIC_CHECK(stdx::tuple_size_v<R> == 1);
 
     using P = stdx::tuple_element_t<0, R>;
     STATIC_CHECK(std::is_same_v<typename P::path_t, decltype("r.f.subf"_f)>);
@@ -97,8 +97,8 @@ TEST_CASE("flatten_paths (multi value)", "[write_spec]") {
     auto pp = groov::detail::flatten_paths(p);
 
     using R = std::remove_cvref_t<decltype(pp)>;
-    STATIC_REQUIRE(stdx::is_specialization_of_v<R, stdx::tuple>);
-    STATIC_REQUIRE(stdx::tuple_size_v<R> == 2);
+    STATIC_CHECK(stdx::is_specialization_of_v<R, stdx::tuple>);
+    STATIC_CHECK(stdx::tuple_size_v<R> == 2);
 
     using P1 = stdx::tuple_element_t<0, R>;
     STATIC_CHECK(std::is_same_v<typename P1::path_t, decltype("r.f0"_f)>);
@@ -119,8 +119,8 @@ TEST_CASE("flatten_paths (arbitrary)", "[write_spec]") {
     auto pp = groov::detail::flatten_paths(p);
 
     using R = std::remove_cvref_t<decltype(pp)>;
-    STATIC_REQUIRE(stdx::is_specialization_of_v<R, stdx::tuple>);
-    STATIC_REQUIRE(stdx::tuple_size_v<R> == 3);
+    STATIC_CHECK(stdx::is_specialization_of_v<R, stdx::tuple>);
+    STATIC_CHECK(stdx::tuple_size_v<R> == 3);
 
     using P1 = stdx::tuple_element_t<0, R>;
     STATIC_CHECK(std::is_same_v<typename P1::path_t, decltype("r.f0"_f)>);
@@ -141,7 +141,7 @@ TEST_CASE("flatten_paths (arbitrary)", "[write_spec]") {
 TEST_CASE("write_spec is made by combining group and paths", "[write_spec]") {
     using namespace groov::literals;
     auto spec = grp("reg0"_r = 5);
-    STATIC_REQUIRE(
+    STATIC_CHECK(
         stdx::is_specialization_of_v<decltype(spec), groov::write_spec>);
 }
 
@@ -149,7 +149,7 @@ TEST_CASE("valid paths are captured", "[write_spec]") {
     using namespace groov::literals;
     auto p = "reg0"_r = 5;
     auto spec = grp(p);
-    STATIC_REQUIRE(
+    STATIC_CHECK(
         std::is_same_v<decltype(spec)::paths_t,
                        boost::mp11::mp_list<typename decltype(p)::path_t>>);
 }
@@ -159,10 +159,9 @@ TEST_CASE("multiple paths can be passed (variadic)", "[write_spec]") {
     auto p = "reg0"_r = 5;
     auto q = "reg1"_r = 6;
     auto spec = grp(p, q);
-    STATIC_REQUIRE(
-        std::is_same_v<
-            decltype(spec)::paths_t,
-            boost::mp11::mp_list<decltype("reg0"_f), decltype("reg1"_f)>>);
+    STATIC_CHECK(std::is_same_v<
+                 decltype(spec)::paths_t,
+                 boost::mp11::mp_list<decltype("reg0"_f), decltype("reg1"_f)>>);
 }
 
 TEST_CASE("multiple paths can be passed (tree)", "[write_spec]") {
@@ -170,7 +169,7 @@ TEST_CASE("multiple paths can be passed (tree)", "[write_spec]") {
     auto p = "field0"_f = 5;
     auto q = "field1"_f = 6;
     auto spec = grp("reg0"_r(p, q));
-    STATIC_REQUIRE(
+    STATIC_CHECK(
         std::is_same_v<decltype(spec)::paths_t,
                        boost::mp11::mp_list<decltype("reg0.field0"_f),
                                             decltype("reg0.field1"_f)>>);
@@ -182,18 +181,18 @@ TEST_CASE("multiple paths can be passed (multi-tree)", "[write_spec]") {
     auto q = "field1"_f = 6;
 
     [[maybe_unused]] auto spec = grp("reg0"_r(p, q), "reg1"_r(p, q));
-    STATIC_REQUIRE(std::is_same_v<
-                   decltype(spec)::paths_t,
-                   boost::mp11::mp_list<
-                       decltype("reg0.field0"_f), decltype("reg0.field1"_f),
-                       decltype("reg1.field0"_f), decltype("reg1.field1"_f)>>);
+    STATIC_CHECK(std::is_same_v<
+                 decltype(spec)::paths_t,
+                 boost::mp11::mp_list<
+                     decltype("reg0.field0"_f), decltype("reg0.field1"_f),
+                     decltype("reg1.field0"_f), decltype("reg1.field1"_f)>>);
 }
 
 TEST_CASE("operator/ is overloaded to make write_spec", "[write_spec]") {
     using namespace groov::literals;
     auto p = "reg0"_r = 5;
     auto spec = grp / p;
-    STATIC_REQUIRE(
+    STATIC_CHECK(
         std::is_same_v<decltype(spec)::paths_t,
                        boost::mp11::mp_list<typename decltype(p)::path_t>>);
 }
