@@ -232,7 +232,7 @@ namespace {
 struct bus_u8 {
     template <stdx::ct_string Name, auto Mask>
     static auto read(auto addr) -> async::sender auto {
-        STATIC_REQUIRE(Name == stdx::ct_string{"reg"});
+        STATIC_CHECK(Name == stdx::ct_string{"reg"});
         return async::just_result_of([=] { return *addr; });
     }
 

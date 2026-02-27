@@ -303,7 +303,7 @@ struct bus_u8 {
 
     template <stdx::ct_string Name, auto Mask, auto IdMask, auto IdValue>
     static auto write(auto addr, auto value) -> async::sender auto {
-        STATIC_REQUIRE(Name == stdx::ct_string{"reg"});
+        STATIC_CHECK(Name == stdx::ct_string{"reg"});
         return async::just_result_of([=] {
             auto prev = *addr & ~(Mask | IdMask);
             *addr = static_cast<std::uint8_t>(prev | value | IdValue);
