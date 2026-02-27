@@ -34,14 +34,14 @@ TEST_CASE("fields inside a register", "[config]") {
     using F = groov::field<"field", std::uint32_t, 0, 0>;
     using R = groov::reg<"reg", std::uint32_t, 0, groov::w::replace, F>;
     using X = groov::get_child<R, "field">;
-    STATIC_CHECK(std::same_as<F, X>);
+    STATIC_CHECK(std::is_same_v<F, X>);
 }
 
 TEST_CASE("registers in a group", "[config]") {
     using R = groov::reg<"reg", std::uint32_t, 0>;
     using G = groov::group<"group", bus, R>;
     using X = groov::get_child<G, "reg">;
-    STATIC_CHECK(std::same_as<R, X>);
+    STATIC_CHECK(std::is_same_v<R, X>);
 }
 
 TEST_CASE("subfields inside a field", "[config]") {
@@ -49,7 +49,7 @@ TEST_CASE("subfields inside a field", "[config]") {
     using F =
         groov::field<"field", std::uint32_t, 0, 0, groov::w::replace, SubF>;
     using X = groov::get_child<F, "subfield">;
-    STATIC_CHECK(std::same_as<SubF, X>);
+    STATIC_CHECK(std::is_same_v<SubF, X>);
 }
 
 TEST_CASE("field can be extracted from register value", "[config]") {
@@ -199,15 +199,15 @@ struct be_bus {
 
 TEST_CASE("bus may support byte enables through transform_mask", "[config]") {
     STATIC_CHECK(groov::transform_mask<be_bus>(std::uint32_t{0b1u}) == 0xffu);
-    STATIC_CHECK(std::same_as<decltype(groov::transform_mask<be_bus>(
-                                  std::uint32_t{0b1u})),
-                              std::uint32_t>);
+    STATIC_CHECK(std::is_same_v<decltype(groov::transform_mask<be_bus>(
+                                    std::uint32_t{0b1u})),
+                                std::uint32_t>);
 }
 
 TEST_CASE("bus without transform_mask returns all bits set", "[config]") {
     STATIC_CHECK(groov::transform_mask<bus>(std::uint32_t{0b1u}) ==
                  0xffff'ffffu);
-    STATIC_CHECK(
-        std::same_as<decltype(groov::transform_mask<bus>(std::uint32_t{0b1u})),
-                     std::uint32_t>);
+    STATIC_CHECK(std::is_same_v<decltype(groov::transform_mask<bus>(
+                                    std::uint32_t{0b1u})),
+                                std::uint32_t>);
 }
