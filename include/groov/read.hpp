@@ -97,19 +97,15 @@ constexpr auto read(read_spec<Group, Paths> const &s) -> async::sender auto {
     using read_fields_per_reg_t =
         boost::mp11::mp_transform<detail::all_fields_t, fields_per_reg_t>;
 
-    using register_values_t =
-        boost::mp11::mp_apply<boost::mp11::mp_list, typename Spec::value_t>;
-
     using field_masks_t = boost::mp11::mp_transform_q<
         detail::field_mask_for_reg_q<typename Spec::paths_t>,
-        register_values_t>;
+        typename Spec::value_t>;
 
-    detail::check_write_only<
-        typename Spec::bus_t, read_fields_per_reg_t,
-        boost::mp11::mp_apply<stdx::tuple, field_masks_t>>();
+    detail::check_write_only<typename Spec::bus_t, read_fields_per_reg_t,
+                             field_masks_t>();
 
-    return []<typename... Rs, typename... Ms>(boost::mp11::mp_list<Rs...>,
-                                              boost::mp11::mp_list<Ms...>) {
+    return []<typename... Rs, typename... Ms>(stdx::tuple<Rs...>,
+                                              stdx::tuple<Ms...>) {
         return async::when_all(detail::read<Rs, Group, Ms>()...) |
                async::then(stdx::overload{
                    [](typename Rs::type_t... values) {
@@ -120,7 +116,7 @@ constexpr auto read(read_spec<Group, Paths> const &s) -> async::sender auto {
                            [](auto... vs) { return Spec{{}, {Rs{{}, vs}...}}; },
                            values...);
                    }});
-    }(register_values_t{}, field_masks_t{});
+    }(typename Spec::value_t{}, field_masks_t{});
 }
 
 namespace _read {

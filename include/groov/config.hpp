@@ -39,18 +39,10 @@ template <typename T> using name_of = typename T::name_t;
 
 template <typename T>
 concept named =
-    stdx::is_specialization_of<typename T::name_t, stdx::cts_t>().value;
+    stdx::is_value_specialization_of_v<decltype(T::name), stdx::ct_string>;
 
 template <stdx::ct_string Name, named... Ts> struct named_container {
-  private:
-    template <stdx::ct_string N> struct has_name_q {
-        template <named T>
-        using fn = std::is_same<detail::name_of<T>, stdx::cts_t<N>>;
-    };
-
-  public:
     constexpr static auto name = Name;
-    using name_t = stdx::cts_t<Name>;
     using children_t = boost::mp11::mp_list<Ts...>;
 };
 
