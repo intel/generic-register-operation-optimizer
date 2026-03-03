@@ -476,6 +476,30 @@ TEST_CASE("clear with field_proxy", "[write]") {
 }
 
 namespace {
+using F0_WO = groov::field<"field0", std::uint8_t, 0, 0,
+                           groov::write_only<groov::w::one_to_set>>;
+using F1_WO = groov::field<"field1", std::uint8_t, 1, 1,
+                           groov::write_only<groov::w::one_to_set>>;
+
+std::uint32_t data4{};
+using R5 =
+    groov::reg<"reg5", std::uint32_t, &data4, groov::w::replace, F0_WO, F1_WO>;
+
+using WOB = groov::group<"group", bus, R5>;
+constexpr auto grp_wo = WOB{};
+} // namespace
+
+TEST_CASE(
+    "write a field in a WO register containing other WO fields with ID specs",
+    "[write]") {
+    using namespace groov::literals;
+    bus::num_reads = 0;
+    CHECK(groov::write(grp_wo("reg5.field0"_r = 1)) | async::sync_wait());
+    CHECK(data4 == 1);
+    CHECK(bus::num_reads == 0);
+}
+
+namespace {
 struct be_bus {
     template <stdx::ct_string, auto, auto, auto>
     static auto write(auto addr, auto) -> async::sender auto {

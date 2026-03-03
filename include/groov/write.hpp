@@ -78,6 +78,7 @@ template <typename Bus, typename L> CONSTEVAL auto check_read_only() -> void {
 template <typename F, auto Mask> CONSTEVAL auto check_rmw_field() {
     constexpr auto mask_overlap = F::template mask<decltype(Mask)> & Mask;
     STATIC_ASSERT(not write_only_write_function<typename F::write_fn_t> or
+                      identity_write_function<typename F::write_fn_t> or
                       not mask_overlap,
                   "Write would incur RMW on a write-only field: {}", F::name);
 }
