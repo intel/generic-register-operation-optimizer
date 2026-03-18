@@ -14,14 +14,14 @@ else()
 endif()
 
 add_versioned_package("gh:boostorg/mp11#boost-1.83.0")
-add_versioned_package("gh:intel/cpp-baremetal-concurrency#9b765e0")
-add_versioned_package("gh:intel/cpp-std-extensions#4d468ed")
-add_versioned_package("gh:intel/cpp-baremetal-senders-and-receivers#5abeacd")
+add_versioned_package("gh:intel/cpp-baremetal-concurrency#536bdd7")
+add_versioned_package("gh:intel/cpp-std-extensions#279e430")
+add_versioned_package("gh:intel/cpp-baremetal-senders-and-receivers#cff72f6")
 
 find_package(Python3 COMPONENTS Interpreter)
 
 if(NOT DEFINED CMAKE_CXX_STANDARD)
-    set(CMAKE_CXX_STANDARD 20)
+    set(CMAKE_CXX_STANDARD 23)
 endif()
 
 add_library(groov INTERFACE)
