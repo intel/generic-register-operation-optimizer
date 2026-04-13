@@ -13,7 +13,7 @@ else()
     cpmaddpackage("gh:intel/cicd-repo-infrastructure#3e2bef0")
 endif()
 
-add_versioned_package("gh:boostorg/mp11#boost-1.83.0")
+add_versioned_package(URI "gh:boostorg/mp11#boost-1.83.0" TARGET boost_mp11)
 add_versioned_package("gh:intel/cpp-baremetal-concurrency#536bdd7")
 add_versioned_package("gh:intel/cpp-std-extensions#279e430")
 add_versioned_package("gh:intel/cpp-baremetal-senders-and-receivers#cff72f6")
