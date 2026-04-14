@@ -326,7 +326,7 @@ struct clear_t {};
 constexpr auto clear = clear_t{};
 
 template <typename Bus, typename RegType>
-CONSTEVAL auto transform_mask(RegType mask) -> RegType {
+consteval auto transform_mask(RegType mask) -> RegType {
     if constexpr (requires { Bus::transform_mask(RegType{}); }) {
         return Bus::transform_mask(mask);
     } else {

@@ -6,7 +6,6 @@
 #include <groov/read_spec.hpp>
 #include <groov/resolve.hpp>
 
-#include <stdx/compiler.hpp>
 #include <stdx/tuple.hpp>
 #include <stdx/tuple_algorithms.hpp>
 #include <stdx/type_traits.hpp>
