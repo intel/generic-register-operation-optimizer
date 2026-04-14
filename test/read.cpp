@@ -291,7 +291,7 @@ struct be_bus {
     }
 
     template <typename RegType>
-    CONSTEVAL static auto transform_mask(RegType mask) -> RegType {
+    consteval static auto transform_mask(RegType mask) -> RegType {
         using A = std::array<std::uint8_t, sizeof(RegType)>;
         auto arr = stdx::bit_cast<A>(mask);
         for (auto &i : arr) {

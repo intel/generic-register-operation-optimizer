@@ -59,7 +59,7 @@ template <typename Group> struct to_register_q {
 
 template <typename Register> using to_fields = typename Register::children_t;
 
-template <typename F, auto Mask> CONSTEVAL auto check_writeonly_field() {
+template <typename F, auto Mask> consteval auto check_writeonly_field() {
     constexpr auto mask_overlap = F::template mask<decltype(Mask)> & Mask;
     if constexpr (registerlike<F>) {
         STATIC_ASSERT(not write_only_write_function<typename F::write_fn_t> or
@@ -75,7 +75,7 @@ template <typename F, auto Mask> CONSTEVAL auto check_writeonly_field() {
 }
 
 template <typename Bus, typename L, typename Masks>
-CONSTEVAL auto check_write_only() -> void {
+consteval auto check_write_only() -> void {
     [[maybe_unused]] auto r = stdx::for_each(
         []<typename... Fs>(boost::mp11::mp_list<Fs...>, auto mask) {
             constexpr auto read_mask = transform_mask<Bus>(mask());

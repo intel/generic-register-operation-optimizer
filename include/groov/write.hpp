@@ -56,7 +56,7 @@ template <typename Reg>
 using compute_reg_id_value_t =
     std::integral_constant<typename Reg::type_t, Reg::unused_identity_value>;
 
-template <typename F> CONSTEVAL auto check_readonly_field() {
+template <typename F> consteval auto check_readonly_field() {
     if constexpr (registerlike<F>) {
         STATIC_ASSERT(not read_only_write_function<typename F::write_fn_t>,
                       "Attempting to write to a read-only register: {}",
@@ -67,7 +67,7 @@ template <typename F> CONSTEVAL auto check_readonly_field() {
     }
 }
 
-template <typename Bus, typename L> CONSTEVAL auto check_read_only() -> void {
+template <typename Bus, typename L> consteval auto check_read_only() -> void {
     [[maybe_unused]] auto r = stdx::for_each(
         []<typename... Fs>(boost::mp11::mp_list<Fs...>) {
             (check_readonly_field<Fs>(), ...);
@@ -75,7 +75,7 @@ template <typename Bus, typename L> CONSTEVAL auto check_read_only() -> void {
         L{});
 }
 
-template <typename F, auto Mask> CONSTEVAL auto check_rmw_field() {
+template <typename F, auto Mask> consteval auto check_rmw_field() {
     constexpr auto mask_overlap = F::template mask<decltype(Mask)> & Mask;
     STATIC_ASSERT(not write_only_write_function<typename F::write_fn_t> or
                       identity_write_function<typename F::write_fn_t> or
@@ -84,7 +84,7 @@ template <typename F, auto Mask> CONSTEVAL auto check_rmw_field() {
 }
 
 template <typename Bus, typename L, typename Masks>
-CONSTEVAL auto check_rmw() -> void {
+consteval auto check_rmw() -> void {
     [[maybe_unused]] auto r = stdx::for_each(
         []<typename... Fs>(boost::mp11::mp_list<Fs...>, auto mask) {
             [[maybe_unused]] constexpr auto write_mask =
