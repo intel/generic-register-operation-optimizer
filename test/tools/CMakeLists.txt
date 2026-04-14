@@ -12,7 +12,6 @@ generate_register_group(
     stdx
     INCLUDES
     "stdx/tuple.hpp"
-    "stdx/compiler.hpp"
     BUS
     "groov::mmio_bus<>"
     NAMESPACE
