@@ -1,5 +1,8 @@
 import argparse
 import groov
+import importlib.util
+from pathlib import Path
+import sys
 
 
 def select_name_func(choice):
@@ -15,7 +18,6 @@ def select_name_func(choice):
     return dict(keep=keep, lower=to_lower, upper=to_upper)[choice]
 
 
-# def generate_groups(groups, ):
 def generate_groups(groups, config):
     namespace = config.namespace
     name_func = select_name_func(config.naming)
@@ -52,11 +54,13 @@ def generate_groups(groups, config):
 
     with open(f"{config.output}", "w") as f:
         print("#pragma once", file=f)
+        print("", file=f)
         for include in includes:
             print(f"#include <{include}>", file=f)
-
+        print("", file=f)
         print("#include <groov/mmio_bus.hpp>", file=f)
         print("#include <groov/config.hpp>", file=f)
+        print("", file=f)
         print("#include <cstdint>", file=f)
         print("", file=f)
 
@@ -66,9 +70,17 @@ def generate_groups(groups, config):
         print(f"}} // namespace {namespace}", file=f)
 
 
+def import_parser_modules(modules):
+    for m in modules:
+        module_name = Path(m).stem
+        spec = importlib.util.spec_from_file_location(module_name, m)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = module
+        spec.loader.exec_module(module)
+        globals().update(vars(module))
+
+
 def generate(config):
-    for f in config.parser_modules:
-        exec(open(f).read())
     parse_fn = eval(config.parse_fn)
     groups = parse_fn(config.input)
     generate_groups(groups, config)
@@ -139,6 +151,7 @@ def parse_cmdline():
 
 def main():
     args = parse_cmdline()
+    import_parser_modules(args.parser_modules)
     generate(args)
 
 
