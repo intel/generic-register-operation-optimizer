@@ -58,6 +58,14 @@ TEST_CASE("read a register", "[read]") {
     CHECK(r["reg0"_r] == data0);
 }
 
+TEST_CASE("read a register and convert", "[read]") {
+    using namespace groov::literals;
+    data0 = 0xa5a5'a5a5u;
+    auto s = read<std::uint32_t>(grp / "reg0"_r);
+    auto r = get<0>(*(s | async::sync_wait()));
+    CHECK(r == data0);
+}
+
 TEST_CASE("sync_read a register", "[read]") {
     using namespace groov::literals;
     data0 = 0xa5a5'a5a5u;
