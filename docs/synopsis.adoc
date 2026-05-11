@@ -147,6 +147,7 @@ No identifiers: this is an omnibus header that includes other headers.
 
 ==== https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/read.hpp[read.hpp]
 * `read` - a function that takes a `read_spec` and produces a sender that produces a `write_spec`
+* `read_as<T>` - a function template that takes a `read_spec` and produces a sender that produces a `T`
 * `sync_read` - a function that takes a `read_spec` and blocks, producing the `write_spec`
 
 ==== https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/read_spec.hpp[read_spec.hpp]
@@ -195,6 +196,7 @@ No public identifiers: this header contains metaprogramming helpers.
 * `mmio_bus` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/mmio_bus.hpp[`#include <groov/mmio_bus.hpp>`]
 * `path` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/path.hpp[`#include <groov/path.hpp>`]
 * `read` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/read.hpp[`#include <groov/read.hpp>`]
+* `read_as` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/read.hpp[`#include <groov/read.hpp>`]
 * `read_only` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/identity.hpp[`#include <groov/identity.hpp>`]
 * `read_spec` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/read_spec.hpp[`#include <groov/read_spec.hpp>`]
 * `register` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/config.hpp[`#include <groov/config.hpp>`]

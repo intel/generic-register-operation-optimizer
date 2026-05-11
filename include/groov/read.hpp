@@ -94,8 +94,8 @@ template <typename T, typename Spec> consteval auto check_read_conversion() {
 }
 } // namespace detail
 
-template <typename T = void, typename Group, typename Paths>
-constexpr auto read(read_spec<Group, Paths> const &s) -> async::sender auto {
+template <typename T, typename Group, typename Paths>
+constexpr auto read_as(read_spec<Group, Paths> const &s) -> async::sender auto {
     using Spec = decltype(to_write_spec(s));
 
     using fields_per_reg_t = boost::mp11::mp_transform_q<
@@ -140,15 +140,22 @@ template <typename T> struct pipeable {
     friend constexpr auto operator|(S &&s, pipeable) -> async::sender auto {
         return std::forward<S>(s) |
                async::let_value([]<typename Spec>(Spec &&spec) {
-                   return read<T>(std::forward<Spec>(spec));
+                   return read_as<T>(std::forward<Spec>(spec));
                });
     }
 };
 } // namespace _read
 
-template <typename T = void> constexpr auto read() {
+template <typename T> constexpr auto read_as() {
     return async::compose(_read::pipeable<T>{});
 }
+
+template <typename Group, typename Paths>
+constexpr auto read(read_spec<Group, Paths> const &s) -> decltype(auto) {
+    return read_as<void>(s);
+}
+
+constexpr inline auto read() { return async::compose(_read::pipeable<void>{}); }
 
 namespace _sync_read {
 template <typename Behavior, async::sender S> [[nodiscard]] auto wait(S &&s) {

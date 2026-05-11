@@ -53,7 +53,9 @@ auto w_spec = grp / ("reg"_r = 42);
 assert(w_spec == 42); // implicit conversion
 ----
 
-=== Read
+=== Reading
+
+==== `read`
 
 The `read` function takes a `read_spec` and produces a
 https://intel.github.io/cpp-baremetal-senders-and-receivers/[sender].
@@ -77,6 +79,22 @@ Read can also be piped in a chain of senders.
 auto r = async::just(grp / "reg"_r) | groov::read() | async::sync_wait();
 ----
 
+==== `read_as`
+
+The `read_as` function behaves like `read`, except that it takes a template
+(type) argument: the read value will be converted to this type before being
+sent. This works when reading one value only.
+
+[source,cpp]
+----
+auto r = groov::read_as<bool>(grp / "reg"_r);
+----
+
+Here, the type of `"reg"_r` must be
+https://cppreference.com/cpp/concepts/convertible_to[`convertible_to`] `bool`.
+
+==== `sync_read`
+
 To do a simple read from a bus that is synchronous (e.g. an MMIO bus),
 `sync_read` may be called:
 
@@ -88,7 +106,9 @@ auto r = async::just(grp / "reg"_r) | groov::sync_read();
 NOTE: `sync_read` automatically assumes that the operation will succeed and
 returns the resulting `write_spec`.
 
-=== Write
+=== Writing
+
+==== `write`
 
 The `write` function takes a `write_spec` and produces a
 https://intel.github.io/cpp-baremetal-senders-and-receivers/[sender].
@@ -110,6 +130,8 @@ Write can also be piped in a chain of senders.
 ----
 auto r = async::just(grp("reg"_r = 42)) | groov::write() | async::sync_wait();
 ----
+
+==== `sync_write`
 
 To do a simple write to a bus that is synchronous (e.g. an MMIO bus),
 `sync_write` may be called:
