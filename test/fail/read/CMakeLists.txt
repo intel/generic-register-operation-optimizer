@@ -10,5 +10,6 @@ if(${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU" AND ${CMAKE_CXX_COMPILER_VERSION}
     return()
 endif()
 
-add_fail_tests(read_from_wo_field_indirect_by_register
-               read_from_wo_field_direct read_from_wo_register_direct)
+add_fail_tests(
+    read_from_wo_field_indirect_by_register read_from_wo_field_direct
+    read_from_wo_register_direct read_multi_conversion)

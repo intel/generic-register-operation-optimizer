@@ -21,6 +21,7 @@
 #include <boost/mp11/algorithm.hpp>
 #include <boost/mp11/list.hpp>
 
+#include <concepts>
 #include <optional>
 #include <type_traits>
 #include <utility>
@@ -84,9 +85,16 @@ consteval auto check_write_only() -> void {
         L{}, Masks{});
 }
 
+template <typename T, typename Spec> consteval auto check_read_conversion() {
+    STATIC_ASSERT(
+        (std::convertible_to<Spec, T>),
+        "Cannot convert the result of read ({}) to {} -- are you reading "
+        "multiple paths?",
+        Spec, T);
+}
 } // namespace detail
 
-template <typename Group, typename Paths>
+template <typename T = void, typename Group, typename Paths>
 constexpr auto read(read_spec<Group, Paths> const &s) -> async::sender auto {
     using Spec = decltype(to_write_spec(s));
 
@@ -104,35 +112,43 @@ constexpr auto read(read_spec<Group, Paths> const &s) -> async::sender auto {
     detail::check_write_only<typename Spec::bus_t, read_fields_per_reg_t,
                              field_masks_t>();
 
+    using R = stdx::conditional_t<std::is_void_v<T>, Spec, T>;
+    detail::check_read_conversion<R, Spec>();
+
     return []<typename... Rs, typename... Ms>(stdx::tuple<Rs...>,
                                               stdx::tuple<Ms...>) {
         return async::when_all(detail::read<Rs, Group, Ms>()...) |
                async::then(stdx::overload{
-                   [](typename Rs::type_t... values) {
+                   [](typename Rs::type_t... values) -> R {
                        return Spec{{}, {Rs{{}, values}...}};
                    },
-                   [](std::optional<typename Rs::type_t>... values) {
+                   [](std::optional<typename Rs::type_t>... values)
+                       -> std::optional<R> {
                        return stdx::transform(
-                           [](auto... vs) { return Spec{{}, {Rs{{}, vs}...}}; },
+                           [](auto... vs) -> R {
+                               return Spec{{}, {Rs{{}, vs}...}};
+                           },
                            values...);
                    }});
     }(typename Spec::value_t{}, field_masks_t{});
 }
 
 namespace _read {
-struct pipeable {
+template <typename T> struct pipeable {
   private:
     template <async::sender S>
     friend constexpr auto operator|(S &&s, pipeable) -> async::sender auto {
         return std::forward<S>(s) |
                async::let_value([]<typename Spec>(Spec &&spec) {
-                   return read(std::forward<Spec>(spec));
+                   return read<T>(std::forward<Spec>(spec));
                });
     }
 };
 } // namespace _read
 
-constexpr auto read() { return async::compose(_read::pipeable{}); }
+template <typename T = void> constexpr auto read() {
+    return async::compose(_read::pipeable<T>{});
+}
 
 namespace _sync_read {
 template <typename Behavior, async::sender S> [[nodiscard]] auto wait(S &&s) {
