@@ -30,5 +30,5 @@ using G = groov::group<"group", read_bus, R>;
 
 auto main() -> int {
     using namespace groov::literals;
-    [[maybe_unused]] auto x = read<int>(G{}("reg.f0"_f, "reg.f1"_f));
+    [[maybe_unused]] auto x = read_as<int>(G{}("reg.f0"_f, "reg.f1"_f));
 }
