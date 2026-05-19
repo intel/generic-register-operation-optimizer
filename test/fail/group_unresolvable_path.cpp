@@ -6,7 +6,7 @@
 
 #include <cstdint>
 
-// EXPECT: Unresolvable path passed to group
+// EXPECT: Unresolvable path \(reg0.field1\) passed to group
 
 namespace {
 using F0 = groov::field<"field0", std::uint8_t, 0, 0>;

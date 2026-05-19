@@ -1,5 +1,6 @@
 #pragma once
 
+#include <groov/boost_extra.hpp>
 #include <groov/identity.hpp>
 #include <groov/make_spec.hpp>
 #include <groov/resolve.hpp>
@@ -8,6 +9,7 @@
 
 #include <stdx/bit.hpp>
 #include <stdx/ct_string.hpp>
+#include <stdx/static_assert.hpp>
 #include <stdx/type_traits.hpp>
 #include <stdx/utility.hpp>
 
@@ -224,15 +226,33 @@ template <typename G> struct group_resolves_q {
     template <pathlike P> using fn = is_resolvable_t<G, P>;
 };
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 template <typename G, typename L> constexpr auto check_valid_config() -> void {
-    static_assert(boost::mp11::mp_is_set<L>::value,
-                  "Duplicate path passed to group");
-    static_assert(boost::mp11::mp_all_of_q<L, group_resolves_q<G>>::value,
-                  "Unresolvable path passed to group");
+    using duplicates_t = boost::mpx::mp_duplicates<L>;
+    constexpr auto no_duplicates = boost::mp11::mp_empty<duplicates_t>::value;
+    if constexpr (not no_duplicates) {
+        STATIC_ASSERT(no_duplicates, "Duplicate path ({}) passed to group ({})",
+                      boost::mp11::mp_front<duplicates_t>::to_string(),
+                      G::name);
+    }
+
+    using unresolved_t = boost::mp11::mp_remove_if_q<L, group_resolves_q<G>>;
+    constexpr auto resolved = boost::mp11::mp_empty<unresolved_t>::value;
+    if constexpr (not resolved) {
+        STATIC_ASSERT(resolved, "Unresolvable path ({}) passed to group ({})",
+                      boost::mp11::mp_front<unresolved_t>::to_string(),
+                      G::name);
+    }
+
     stdx::template_for_each<L>([]<typename P>() {
         using rest = boost::mp11::mp_remove<L, P>;
-        static_assert(boost::mp11::mp_none_of_q<rest, resolves_q<P>>::value,
-                      "Redundant path passed to group");
+        using resolvers_t = boost::mp11::mp_copy_if_q<rest, resolves_q<P>>;
+        constexpr auto has_resolver = boost::mp11::mp_empty<resolvers_t>::value;
+        if constexpr (not has_resolver) {
+            STATIC_ASSERT(
+                has_resolver, "Redundant path ({}) passed to group ({})",
+                boost::mp11::mp_front<resolvers_t>::to_string(), G::name);
+        }
     });
 }
 

@@ -49,5 +49,15 @@ struct mp_gather_t<F, List<Ts...>> {
         boost::mp11::mp_push_front<mp_gather_q<F, boost::mp11::mp_second<P>>,
                                    boost::mp11::mp_first<P>>;
 };
+
+template <typename L> struct has_duplicates_q {
+    template <typename T>
+    using fn = boost::mp11::mp_bool<(boost::mp11::mp_count<L, T>::value > 1)>;
+};
 } // namespace detail
+
+template <typename L>
+using mp_duplicates = boost::mp11::mp_copy_if_q<boost::mp11::mp_unique<L>,
+                                                detail::has_duplicates_q<L>>;
+
 } // namespace boost::mpx

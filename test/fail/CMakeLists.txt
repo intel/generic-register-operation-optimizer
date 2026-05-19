@@ -5,9 +5,6 @@ function(add_fail_tests)
 endfunction()
 
 add_fail_tests(
-    group_duplicate_path
-    group_redundant_path
-    group_unresolvable_path
     path_ambiguous
     path_mismatch
     path_too_long
@@ -21,6 +18,20 @@ add_fail_tests(
 
 target_compile_options(EXPECT_FAIL.sync_write_nontrivial_nodiscard.cpp
                        PRIVATE -Werror)
+
+function(add_formatted_errors_tests)
+    add_fail_tests(group_duplicate_path group_redundant_path
+                   group_unresolvable_path)
+endfunction()
+
+if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang" AND ${CMAKE_CXX_COMPILER_VERSION}
+                                                 VERSION_GREATER_EQUAL 15)
+    add_formatted_errors_tests()
+endif()
+if(${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU" AND ${CMAKE_CXX_COMPILER_VERSION}
+                                               VERSION_GREATER_EQUAL 13.2)
+    add_formatted_errors_tests()
+endif()
 
 add_subdirectory(read)
 add_subdirectory(write)
