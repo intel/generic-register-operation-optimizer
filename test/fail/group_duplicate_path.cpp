@@ -6,7 +6,7 @@
 
 #include <cstdint>
 
-// EXPECT: Duplicate path passed to group
+// EXPECT: Duplicate path \(reg0\) passed to group
 
 namespace {
 using F0 = groov::field<"field0", std::uint8_t, 0, 0>;
