@@ -7,15 +7,19 @@
 #include <async/just_result_of.hpp>
 #include <async/then.hpp>
 
+#include <stdx/bit.hpp>
+#include <stdx/ct_conversions.hpp>
 #include <stdx/ct_string.hpp>
 
 #include <boost/mp11/algorithm.hpp>
 #include <boost/mp11/integral.hpp>
 #include <boost/mp11/list.hpp>
 
-#include <bit>
 #include <concepts>
+#include <cstddef>
 #include <cstdint>
+#include <limits>
+#include <type_traits>
 
 namespace groov {
 namespace detail {
@@ -81,23 +85,42 @@ template <auto Mask, decltype(Mask) IdMask> struct subword_satisfies {
 } // namespace detail
 
 struct cpp_mem_iface {
-    template <std::unsigned_integral T> static auto store(std::uintptr_t addr) {
+    template <std::unsigned_integral T>
+    static auto store(std::uintptr_t iaddr) {
         return async::then([=](T value) -> void {
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-            *reinterpret_cast<T volatile *>(addr) = value;
+            auto addr = stdx::bit_cast<T volatile *>(iaddr);
+            *addr = value;
         });
     }
 
     template <std::unsigned_integral T>
-    static auto load(std::uintptr_t addr) -> async::sender auto {
+    static auto load(std::uintptr_t iaddr) -> async::sender auto {
         return async::just_result_of([=]() -> T {
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-            return *reinterpret_cast<T volatile *>(addr);
+            auto addr = stdx::bit_cast<T volatile *>(iaddr);
+            return *addr;
         });
     }
 
     template <typename T> constexpr static std::size_t alignment = alignof(T);
 };
+
+namespace detail {
+template <std::unsigned_integral T, std::unsigned_integral U>
+constexpr auto convert_addr(U u) -> T {
+    if constexpr (sizeof(T) > sizeof(U)) {
+        return static_cast<T>(u);
+    } else {
+        static_assert(std::same_as<T, U>);
+        return u;
+    }
+}
+
+template <std::unsigned_integral T, std::unsigned_integral U>
+constexpr auto convert_addr(U *p) -> T {
+    static_assert(sizeof(T) == sizeof(U *));
+    return stdx::bit_cast<T>(p);
+}
+} // namespace detail
 
 template <typename HardwareInterface = cpp_mem_iface> struct mmio_bus {
     using iface = HardwareInterface;
@@ -123,12 +146,14 @@ template <typename HardwareInterface = cpp_mem_iface> struct mmio_bus {
             detail::mp_copy_if_q<subwords_aligned_and_fit,
                                  detail::subword_satisfies<Mask, IdMask>>;
 
+        auto iaddr = detail::convert_addr<std::uintptr_t>(addr);
+
         if constexpr (!detail::mp_empty<subword_candidates>::value) {
             using subword = detail::mp_first<subword_candidates>;
             using subword_t = typename subword::subword_t;
 
             auto const write_val = value | IdValue;
-            auto const subword_addr = addr + subword::offset;
+            auto const subword_addr = iaddr + subword::offset;
             auto const subword_write_val =
                 static_cast<subword_t>(write_val >> (subword::offset * 8));
 
@@ -136,21 +161,22 @@ template <typename HardwareInterface = cpp_mem_iface> struct mmio_bus {
                    iface::template store<subword_t>(subword_addr);
 
         } else {
-            return iface::template load<base_type>(addr) |
+            return iface::template load<base_type>(iaddr) |
                    async::then([=](base_type old) {
                        auto const bits_to_update = value & Mask;
                        auto const bits_to_writeback = old & ~Mask & ~IdMask;
 
                        return bits_to_update | bits_to_writeback | IdValue;
                    }) |
-                   iface::template store<base_type>(addr);
+                   iface::template store<base_type>(iaddr);
         }
     }
 
     template <stdx::ct_string, std::unsigned_integral auto Mask>
     static auto read(auto addr) -> async::sender auto {
         using base_type = decltype(Mask);
-        return iface::template load<base_type>(addr);
+        auto iaddr = detail::convert_addr<std::uintptr_t>(addr);
+        return iface::template load<base_type>(iaddr);
     }
 };
 } // namespace groov
