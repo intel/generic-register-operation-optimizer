@@ -4,7 +4,7 @@ def parse_svd(filename):
     import xml.etree.ElementTree as et
 
     def mk_field(x):
-        (msb, lsb) = re.search(r"\[(\d+):(\d+)\]", x.find("bitRange").text).groups()
+        msb, lsb = re.search(r"\[(\d+):(\d+)\]", x.find("bitRange").text).groups()
 
         return groov.Field(
             name=x.find("name").text,
