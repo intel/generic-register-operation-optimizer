@@ -193,14 +193,14 @@ TEST_CASE("test_bus write function", "[test]") {
         write_value = get<std::uint32_t>(value).value_or(0);
     });
 
-    groov::sync_write(grp0("reg0"_r = 0x76));
+    groov::sync_write(grp0("reg0"_r = 0x10325476u));
 
     CHECK(data0 == 0xa5a5'a5a5u);
     CHECK(my_bus::num_reads == 0);
     CHECK(my_bus::num_writes == 0);
     CHECK(write_call_count == 1);
     CHECK(write_addr == &data0);
-    CHECK(write_value == 0xbabefa76u);
+    CHECK(write_value == 0x10325476u);
     auto v = groov::test::get_value<G0>("reg0"_f);
     REQUIRE(v);
     CHECK(*v == 0xbabefaceu);
