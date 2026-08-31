@@ -599,3 +599,25 @@ TEST_CASE("writing register fields in a register that is not covered by fields "
         async::sync_wait());
     CHECK(rmw_check_data == 0b110'1010'1u);
 }
+
+namespace {
+using F_overlap = groov::field<"f_overlap", std::uint8_t, 3, 0>;
+
+std::uint32_t overlap_data{};
+using R_overlap = groov::reg<"r", std::uint32_t, &overlap_data,
+                             groov::w::replace, F0, F_overlap>;
+
+using G_overlap = groov::group<"group", bus, R_overlap>;
+constexpr auto overlap_grp = G_overlap{};
+} // namespace
+
+TEST_CASE("overlapping writes: last one takes priority", "[write]") {
+    using namespace groov::literals;
+    overlap_data = 0xffff'ffffu;
+    CHECK(sync_write(overlap_grp("r.f_overlap"_r = 0, "r.field0"_f = 1)));
+    CHECK(overlap_data == 0xffff'fff1u);
+
+    overlap_data = 0xffff'ffffu;
+    CHECK(sync_write(overlap_grp("r.field0"_f = 1, "r.f_overlap"_r = 0)));
+    CHECK(overlap_data == 0xffff'fff0u);
+}
