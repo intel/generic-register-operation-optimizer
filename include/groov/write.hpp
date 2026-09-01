@@ -118,9 +118,9 @@ auto write(Spec const &s) -> async::sender auto {
                                   all_fields_per_reg_t,
                                   written_fields_per_reg_t>;
 
-    using field_masks_t = boost::mp11::mp_transform<detail::compute_mask_t,
-                                                    typename Spec::value_t,
-                                                    written_fields_per_reg_t>;
+    using field_masks_t =
+        boost::mp11::mp_transform<detail::compute_mask_t,
+                                  typename Spec::value_t, fields_per_reg_t>;
 
     detail::check_read_only<typename Spec::bus_t, fields_per_reg_t>();
     detail::check_rmw<typename Spec::bus_t, unwritten_fields_per_reg_t,

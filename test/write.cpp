@@ -15,6 +15,7 @@
 
 #include <array>
 #include <cstdint>
+#include <limits>
 
 namespace {
 struct bus {
@@ -548,4 +549,75 @@ TEST_CASE("write a field in a register containing WO fields which won't be "
     using namespace groov::literals;
     CHECK(groov::write(grp_be("reg4.field0"_r = 1)) | async::sync_wait());
     CHECK(data3 == 42);
+}
+
+namespace {
+struct rmw_check_bus {
+    static inline std::uint32_t expected_mask{};
+
+    template <stdx::ct_string, auto Mask, auto IdMask, auto IdValue>
+    static auto write(auto addr, auto value) -> async::sender auto {
+        CHECK((Mask | IdMask) == expected_mask);
+        return async::just_result_of([=] {
+            auto prev = *addr & ~(Mask | IdMask);
+            *addr = prev | value | IdValue;
+        });
+    }
+
+    template <stdx::ct_string, auto Mask>
+    static auto read(auto addr) -> async::sender auto {
+        return async::just_result_of([=] { return *addr; });
+    }
+};
+
+std::uint32_t rmw_check_data{};
+using rmw_check_R = groov::reg<"r", std::uint32_t, &rmw_check_data,
+                               groov::w::replace, F0, F1, F2>;
+
+using rmw_check_G = groov::group<"group", rmw_check_bus, rmw_check_R>;
+constexpr auto rmw_check_grp = rmw_check_G{};
+} // namespace
+
+TEST_CASE("writing a register that is not covered by fields does not RMW",
+          "[write]") {
+    using namespace groov::literals;
+    rmw_check_bus::expected_mask = 0xffff'ffffu;
+    rmw_check_data = 0;
+    CHECK(groov::write(rmw_check_grp("r"_r = 0xa5a5u)) | async::sync_wait());
+    CHECK(rmw_check_data == 0xa5a5u);
+}
+
+TEST_CASE("writing register fields in a register that is not covered by fields "
+          "incurs RMW",
+          "[write]") {
+    using namespace groov::literals;
+    rmw_check_bus::expected_mask = 0xffu;
+    rmw_check_data = 0;
+    CHECK(
+        groov::write(rmw_check_grp("r.field0"_f = 0b1u, "r.field1"_f = 0b1010u,
+                                   "r.field2"_f = 0b110u)) |
+        async::sync_wait());
+    CHECK(rmw_check_data == 0b110'1010'1u);
+}
+
+namespace {
+using F_overlap = groov::field<"f_overlap", std::uint8_t, 3, 0>;
+
+std::uint32_t overlap_data{};
+using R_overlap = groov::reg<"r", std::uint32_t, &overlap_data,
+                             groov::w::replace, F0, F_overlap>;
+
+using G_overlap = groov::group<"group", bus, R_overlap>;
+constexpr auto overlap_grp = G_overlap{};
+} // namespace
+
+TEST_CASE("overlapping writes: last one takes priority", "[write]") {
+    using namespace groov::literals;
+    overlap_data = 0xffff'ffffu;
+    CHECK(sync_write(overlap_grp("r.f_overlap"_r = 0, "r.field0"_f = 1)));
+    CHECK(overlap_data == 0xffff'fff1u);
+
+    overlap_data = 0xffff'ffffu;
+    CHECK(sync_write(overlap_grp("r.field0"_f = 1, "r.f_overlap"_r = 0)));
+    CHECK(overlap_data == 0xffff'fff0u);
 }
