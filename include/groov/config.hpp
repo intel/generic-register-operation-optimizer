@@ -211,7 +211,9 @@ struct group : named_container<Name, Registers...> {
         return detail::recursive_resolve<group>(p);
     }
 
-    constexpr auto operator()(pathlike auto const &...ps) const {
+    constexpr auto operator()(pathlike auto const &...ps) const
+        requires(sizeof...(ps) > 0)
+    {
         return make_spec(*this, ps...);
     }
 
