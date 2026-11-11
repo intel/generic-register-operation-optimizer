@@ -94,7 +94,7 @@ def parse_cmdline():
     parser.add_argument(
         "--bus",
         type=str,
-        default="groov::mmio_bus<>",
+        default="groov::byte_enabled_mmio_bus<>",
         help="Specify a custom bus interface for register groups to use.",
     )
     parser.add_argument(

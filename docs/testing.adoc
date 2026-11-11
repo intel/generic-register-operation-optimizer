@@ -16,13 +16,13 @@ not available on the test target.
 ----
 using g0 =
   groov::group<
-    "some_group", groov::mmio_bus<>,
+    "some_group", groov::byte_enabled_mmio_bus<>,
     reg0, reg1, reg2
   >;
 ----
 
 `g0` describes a group consisting of `reg0`, `reg1`, and `reg2` that will
-all use the `groov::mmio_bus`.
+all use the `groov::byte_enabled_mmio_bus`.
 
 We can tell `groov` that `"some_group"` should use our `testing_bus`
 instead. To do so, we:
@@ -145,7 +145,7 @@ using reg2 = groov::reg<"reg2", std::uint32_t, ADD2, groov::w::replace, field0, 
 
 using G0 =
   groov::group<
-    "some_group", groov::mmio_bus<>,
+    "some_group", groov::byte_enabled_mmio_bus<>,
     reg0, reg1, reg2
   >;
 constexpr auto grp0 = G0{};

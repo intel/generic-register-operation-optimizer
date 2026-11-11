@@ -52,6 +52,11 @@ using subword_permutations =
 
             subword_spec<std::uint64_t, 0u>>;
 
+using word_permutations =
+    mp_list<subword_spec<std::uint32_t, 0u>, subword_spec<std::uint32_t, 4u>,
+
+            subword_spec<std::uint64_t, 0u>>;
+
 template <std::unsigned_integral BaseType> struct fits_within {
     constexpr static auto base_size = sizeof(BaseType);
 
@@ -122,7 +127,9 @@ constexpr auto convert_addr(U *p) -> T {
 }
 } // namespace detail
 
-template <typename HardwareInterface = cpp_mem_iface> struct mmio_bus {
+template <typename HardwareInterface = cpp_mem_iface,
+          typename Permutation = detail::word_permutations>
+struct mmio_bus {
     using iface = HardwareInterface;
 
     template <stdx::ct_string, auto Mask, decltype(Mask) IdMask,
@@ -135,8 +142,7 @@ template <typename HardwareInterface = cpp_mem_iface> struct mmio_bus {
         using base_type = decltype(Mask);
 
         using subwords_aligned =
-            detail::mp_copy_if_q<detail::subword_permutations,
-                                 detail::aligned_for<iface>>;
+            detail::mp_copy_if_q<Permutation, detail::aligned_for<iface>>;
 
         using subwords_aligned_and_fit =
             detail::mp_copy_if_q<subwords_aligned,
@@ -179,4 +185,8 @@ template <typename HardwareInterface = cpp_mem_iface> struct mmio_bus {
         return iface::template load<base_type>(iaddr);
     }
 };
+
+template <typename HardwareInterface = cpp_mem_iface>
+using byte_enabled_mmio_bus =
+    mmio_bus<HardwareInterface, detail::subword_permutations>;
 } // namespace groov

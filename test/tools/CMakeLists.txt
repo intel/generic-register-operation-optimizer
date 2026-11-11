@@ -13,7 +13,7 @@ generate_register_group(
     INCLUDES
     "stdx/tuple.hpp"
     BUS
-    "groov::mmio_bus<>"
+    "groov::byte_enabled_mmio_bus<>"
     NAMESPACE
     "test"
     GROUP
