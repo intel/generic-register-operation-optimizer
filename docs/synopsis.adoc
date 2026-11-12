@@ -137,7 +137,9 @@ No identifiers: this is an omnibus header that includes other headers.
   values respectively
 
 ==== https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/mmio_bus.hpp[mmio_bus.hpp]
-* `mmio_bus` - a class template that defines a bus using memory-mapped IO semantics
+* `byte_enabled_mmio_bus` - a class template that defines a bus using memory-mapped IO semantics. Each write is narrowed to the smallest
+  naturally aligned access (8, 16, 32 or 64 bits)
+* `mmio_bus` - a class template that defines a bus using memory-mapped IO semantics. Each write is word aligned access (32 or 64 bits)
 
 ==== https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/path.hpp[path.hpp]
 * `literals::operator""_f` - a UDL that produces a path
@@ -184,6 +186,7 @@ No public identifiers: this header contains metaprogramming helpers.
 
 * `attach_value` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/attach_value.hpp[`#include <groov/attach_value.hpp>`]
 * `bus` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/config.hpp[`#include <groov/config.hpp>`]
+* `byte_enabled_mmio_bus` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/mmio_bus.hpp[`#include <groov/mmio_bus.hpp>`]
 * `field` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/config.hpp[`#include <groov/config.hpp>`]
 * `group` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/config.hpp[`#include <groov/config.hpp>`]
 * `literals::operator""_f` - https://github.com/intel/generic-register-operation-optimizer/blob/main/include/groov/path.hpp[`#include <groov/path.hpp>`]
